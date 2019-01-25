@@ -53,3 +53,11 @@ dkms.conf
 *.crf
 *.iex
 *.sct
+*.dep
+*.lnp
+*.htm
+*.axf
+*.lst
+MDK-ARM/MY_GB.uvoptx
+MDK-ARM/MY_GB.uvguix.Administrator
+MDK-ARM/JLinkLog.txt
