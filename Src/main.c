@@ -96,76 +96,7 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-/**
-  * 函数功能: FatFS文件系统操作结果信息处理.
-  * 输入参数: FatFS文件系统操作结果：FRESULT
-  * 返 回 值: 无
-  * 说    明: 无
-  */
-/*static void printf_fatfs_error(FRESULT fresult)
-{
-  switch(fresult)
-  {
-    case FR_OK:                   //(0)
-      printf("》操作成功。\n");
-    break;
-    case FR_DISK_ERR:             //(1)
-      printf("！！硬件输入输出驱动出错。\n");
-    break;
-    case FR_INT_ERR:              //(2)
-      printf("！！断言错误。\n");
-    break;
-    case FR_NOT_READY:            //(3)
-      printf("！！物理设备无法工作。\n");
-    break;
-    case FR_NO_FILE:              //(4)
-      printf("！！无法找到文件。\n");
-    break;
-    case FR_NO_PATH:              //(5)
-      printf("！！无法找到路径。\n");
-    break;
-    case FR_INVALID_NAME:         //(6)
-      printf("！！无效的路径名。\n");
-    break;
-    case FR_DENIED:               //(7)
-    case FR_EXIST:                //(8)
-      printf("！！拒绝访问。\n");
-    break;
-    case FR_INVALID_OBJECT:       //(9)
-      printf("！！无效的文件或路径。\n");
-    break;
-    case FR_WRITE_PROTECTED:      //(10)
-      printf("！！逻辑设备写保护。\n");
-    break;
-    case FR_INVALID_DRIVE:        //(11)
-      printf("！！无效的逻辑设备。\n");
-    break;
-    case FR_NOT_ENABLED:          //(12)
-      printf("！！无效的工作区。\n");
-    break;
-    case FR_NO_FILESYSTEM:        //(13)
-      printf("！！无效的文件系统。\n");
-    break;
-    case FR_MKFS_ABORTED:         //(14)
-      printf("！！因函数参数问题导致f_mkfs函数操作失败。\n");
-    break;
-    case FR_TIMEOUT:              //(15)
-      printf("！！操作超时。\n");
-    break;
-    case FR_LOCKED:               //(16)
-      printf("！！文件被保护。\n");
-    break;
-    case FR_NOT_ENOUGH_CORE:      //(17)
-      printf("！！长文件名支持获取堆空间失败。\n");
-    break;
-    case FR_TOO_MANY_OPEN_FILES:  //(18)
-      printf("！！打开太多文件。\n");
-    break;
-    case FR_INVALID_PARAMETER:    // (19)
-      printf("！！参数无效。\n");
-    break;
-  }
-}*/
+
 uint32_t Buffer_Block_Tx[512*8]; // 写数据缓存
 uint32_t Buffer_Block_Rx[512*8];
 
@@ -222,7 +153,7 @@ int main(void)
   HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
   Lcd_Init();			//初始化OLED  
 	
-  
+  #if 0
   printf("let s go\r\n");
       /*##-2- Register the file system object to the FatFs module ##############*/
     if(f_mount(&SDFatFS, (TCHAR const*)SDPath, 0) != FR_OK)
@@ -301,7 +232,7 @@ int main(void)
         }
       }
     }
-  
+ #endif 
 	LCD_Clear(BLACK);
   printf("system is ready\r\n");
 
