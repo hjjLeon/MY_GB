@@ -64,6 +64,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "oled.h"
+#include "flash_if.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -84,8 +85,6 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-//FRESULT f_res;                    /* 文件操作结果 */
-//FATFS fs;													/* FatFs文件系统对象 */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -96,12 +95,8 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-uint32_t Buffer_Block_Tx[512*8]; // 写数据缓存
-uint32_t Buffer_Block_Rx[512*8];
-
-FIL MyFile;     /* File object */
-static uint8_t buffer[_MAX_SS]; /* a work buffer for the f_mkfs() */
+static uint8_t updateBuffer[512]; /* a work buffer for the f_mkfs() */
+__IO uint32_t flashdestination;
 /* USER CODE END 0 */
 
 /**
@@ -111,14 +106,12 @@ static uint8_t buffer[_MAX_SS]; /* a work buffer for the f_mkfs() */
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  HAL_SD_StateTypeDef sdState;
-  HAL_StatusTypeDef state;
-  HAL_SD_CardInfoTypeDef SDCardInfo;
+  FIL MyFile;     /* File object */
+  uint32_t size;
   
-  FRESULT res;                                          /* FatFs function common result code */
-  uint32_t byteswritten, bytesread;                     /* File write/read counts */
-  uint8_t wtext[] = "This is STM32 working with FatFs,leon"; /* File write buffer */
-  uint8_t rtext[100]; 
+  typedef  void (*pFunction)(void);
+  pFunction JumpToApplication;
+  uint32_t JumpAddress;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -152,90 +145,73 @@ int main(void)
 
   HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
   Lcd_Init();			//初始化OLED  
-	
-  #if 0
-  printf("let s go\r\n");
-      /*##-2- Register the file system object to the FatFs module ##############*/
-    if(f_mount(&SDFatFS, (TCHAR const*)SDPath, 0) != FR_OK)
-    {
-      /* FatFs Initialization Error */
-      Error_Handler();
-    }
-    else
-    {
-      /*##-3- Create a FAT file system (format) on the logical drive #########*/
-      /* WARNING: Formatting the uSD card will delete all content on the device */
-      if(f_mkfs((TCHAR const*)SDPath, FM_ANY, 0, buffer, sizeof(buffer)) != FR_OK)
-      {
-        /* FatFs Format Error */
-        Error_Handler();
-      }
-      else
-      {       
-        /*##-4- Create and Open a new text file object with write access #####*/
-        if(f_open(&MyFile, "Leon.TXT", FA_CREATE_ALWAYS | FA_WRITE) != FR_OK)
-        {
-          /* 'STM32.TXT' file Open for write Error */
-          Error_Handler();
-        }
-        else
-        {
-          /*##-5- Write data to the text file ################################*/
-          res = f_write(&MyFile, wtext, sizeof(wtext), (void *)&byteswritten);
-          
-          if((byteswritten == 0) || (res != FR_OK))
-          {
-            /* 'STM32.TXT' file Write or EOF Error */
-            Error_Handler();
-          }
-          else
-          {
-            /*##-6- Close the open text file #################################*/
-            f_close(&MyFile);
-            
-            /*##-7- Open the text file object with read access ###############*/
-            if(f_open(&MyFile, "Leon.TXT", FA_READ) != FR_OK)
-            {
-              /* 'STM32.TXT' file Open for read Error */
-              Error_Handler();
-            }
-            else
-            {
-              /*##-8- Read data from the text file ###########################*/
-              res = f_read(&MyFile, rtext, sizeof(rtext), (UINT*)&bytesread);
-              
-              if((bytesread == 0) || (res != FR_OK))
-              {
-                /* 'STM32.TXT' file Read or EOF Error */
-                Error_Handler();
-              }
-              else
-              {
-                /*##-9- Close the open text file #############################*/
-                f_close(&MyFile);
-                
-                /*##-10- Compare read data with the expected data ############*/
-                if((bytesread != byteswritten))
-                {                
-                  /* Read data is different from the expected data */
-                  Error_Handler();
-                }
-                else
-                {
-                  /* Success of the demo: no error occurrence */
-                  //BSP_LED_On(LED1);
-                  printf("fatfs is ok\r\n");
-                }
-              }
-            }
-          }
-        }
-      }
-    }
- #endif 
 	LCD_Clear(BLACK);
   printf("system is ready\r\n");
 
+  if(HAL_GPIO_ReadPin(KEY_SELECT_GPIO_Port, KEY_SELECT_Pin) == GPIO_PIN_RESET)
+  {
+    if(f_mount(&SDFatFS, (TCHAR const*)SDPath, 0) != FR_OK)
+    {
+      /* FatFs Initialization Error */
+      printf("cant mount FS\r\n");
+      Error_Handler();
+    }
+    if(f_open(&MyFile, "GBupdate.bin", FA_OPEN_EXISTING | FA_READ) != FR_OK)
+    {
+      printf("update file donot exist\r\n");
+      Error_Handler();
+    }
+    printf("update package size is %ld\r\n",f_size(&MyFile));
+    FLASH_If_Erase(APPLICATION_ADDRESS);
+    
+    flashdestination = APPLICATION_ADDRESS;
+    while(1){
+      if(f_read(&MyFile, updateBuffer, sizeof(updateBuffer), &size) != FR_OK)
+      {
+        printf("read update package has error\r\n");
+        Error_Handler();
+      }
+      if(f_eof(&MyFile) != 0)
+      {
+        if(size % 4 != 0)
+        {
+          memset(updateBuffer+size, 0, 4-(size % 4));
+          size += 4-(size % 4);
+        }
+        if(FLASH_If_Write(flashdestination, (uint32_t*)updateBuffer, size/4) != FLASHIF_OK)
+        {
+          printf("flash write to %08x has error\r\n", flashdestination);
+          Error_Handler();
+        }
+        break;
+      }
+      else
+      {
+        if(FLASH_If_Write(flashdestination, (uint32_t*)updateBuffer, sizeof(updateBuffer)/4) != FLASHIF_OK)
+        {
+          printf("flash write to %08x has error\r\n", flashdestination);
+          Error_Handler();
+        }
+        flashdestination += sizeof(updateBuffer);
+      }
+    }
+    printf("update is finish\r\n");
+  }
+  else
+  {
+    if (((*(__IO uint32_t*)APPLICATION_ADDRESS) & 0x2FFE0000 ) == 0x20000000)
+    {
+      printf("going to APP\r\n");
+      HAL_Delay(200);
+      /* Jump to user application */
+      JumpAddress = *(__IO uint32_t*) (APPLICATION_ADDRESS + 4);
+      JumpToApplication = (pFunction) JumpAddress;
+      /* Initialize user application's Stack Pointer */
+      __set_MSP(*(__IO uint32_t*) APPLICATION_ADDRESS);
+      JumpToApplication();
+    }
+  }
+    
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -331,6 +307,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   printf("system is error\r\n");
+  while(1);
   /* USER CODE END Error_Handler_Debug */
 }
 
