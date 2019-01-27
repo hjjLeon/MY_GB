@@ -162,7 +162,7 @@ int main(void)
       Error_Handler();
     }
     printf("update package size is %ld\r\n",f_size(&MyFile));
-    FLASH_If_Erase(APPLICATION_ADDRESS);
+    FLASH_If_Erase_GB(APPLICATION_ADDRESS, APPLICATION_ADDRESS + f_size(&MyFile));
     
     flashdestination = APPLICATION_ADDRESS;
     while(1){
@@ -171,6 +171,8 @@ int main(void)
         printf("read update package has error\r\n");
         Error_Handler();
       }
+      printf("%03ld%%\r", (flashdestination - APPLICATION_ADDRESS)*100/f_size(&MyFile));
+      fflush(stdout);
       if(f_eof(&MyFile) != 0)
       {
         if(size % 4 != 0)
@@ -183,6 +185,7 @@ int main(void)
           printf("flash write to %08x has error\r\n", flashdestination);
           Error_Handler();
         }
+        printf("100%%\r\n");
         break;
       }
       else
