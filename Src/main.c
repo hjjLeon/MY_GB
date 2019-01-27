@@ -96,12 +96,6 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-uint32_t Buffer_Block_Tx[512*8]; // 写数据缓存
-uint32_t Buffer_Block_Rx[512*8];
-
-FIL MyFile;     /* File object */
-static uint8_t buffer[_MAX_SS]; /* a work buffer for the f_mkfs() */
 /* USER CODE END 0 */
 
 /**
@@ -111,14 +105,7 @@ static uint8_t buffer[_MAX_SS]; /* a work buffer for the f_mkfs() */
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  HAL_SD_StateTypeDef sdState;
-  HAL_StatusTypeDef state;
-  HAL_SD_CardInfoTypeDef SDCardInfo;
-  
-  FRESULT res;                                          /* FatFs function common result code */
-  uint32_t byteswritten, bytesread;                     /* File write/read counts */
-  uint8_t wtext[] = "This is STM32 working with FatFs,leon"; /* File write buffer */
-  uint8_t rtext[100]; 
+  SCB->VTOR = FLASH_BASE | 0xC000;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -152,89 +139,8 @@ int main(void)
 
   HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
   Lcd_Init();			//初始化OLED  
-	
-  #if 0
-  printf("let s go\r\n");
-      /*##-2- Register the file system object to the FatFs module ##############*/
-    if(f_mount(&SDFatFS, (TCHAR const*)SDPath, 0) != FR_OK)
-    {
-      /* FatFs Initialization Error */
-      Error_Handler();
-    }
-    else
-    {
-      /*##-3- Create a FAT file system (format) on the logical drive #########*/
-      /* WARNING: Formatting the uSD card will delete all content on the device */
-      if(f_mkfs((TCHAR const*)SDPath, FM_ANY, 0, buffer, sizeof(buffer)) != FR_OK)
-      {
-        /* FatFs Format Error */
-        Error_Handler();
-      }
-      else
-      {       
-        /*##-4- Create and Open a new text file object with write access #####*/
-        if(f_open(&MyFile, "Leon.TXT", FA_CREATE_ALWAYS | FA_WRITE) != FR_OK)
-        {
-          /* 'STM32.TXT' file Open for write Error */
-          Error_Handler();
-        }
-        else
-        {
-          /*##-5- Write data to the text file ################################*/
-          res = f_write(&MyFile, wtext, sizeof(wtext), (void *)&byteswritten);
-          
-          if((byteswritten == 0) || (res != FR_OK))
-          {
-            /* 'STM32.TXT' file Write or EOF Error */
-            Error_Handler();
-          }
-          else
-          {
-            /*##-6- Close the open text file #################################*/
-            f_close(&MyFile);
-            
-            /*##-7- Open the text file object with read access ###############*/
-            if(f_open(&MyFile, "Leon.TXT", FA_READ) != FR_OK)
-            {
-              /* 'STM32.TXT' file Open for read Error */
-              Error_Handler();
-            }
-            else
-            {
-              /*##-8- Read data from the text file ###########################*/
-              res = f_read(&MyFile, rtext, sizeof(rtext), (UINT*)&bytesread);
-              
-              if((bytesread == 0) || (res != FR_OK))
-              {
-                /* 'STM32.TXT' file Read or EOF Error */
-                Error_Handler();
-              }
-              else
-              {
-                /*##-9- Close the open text file #############################*/
-                f_close(&MyFile);
-                
-                /*##-10- Compare read data with the expected data ############*/
-                if((bytesread != byteswritten))
-                {                
-                  /* Read data is different from the expected data */
-                  Error_Handler();
-                }
-                else
-                {
-                  /* Success of the demo: no error occurrence */
-                  //BSP_LED_On(LED1);
-                  printf("fatfs is ok\r\n");
-                }
-              }
-            }
-          }
-        }
-      }
-    }
- #endif 
 	LCD_Clear(BLACK);
-  printf("system is ready\r\n");
+  printf("system is ready,by Application\r\n");
 
   /* USER CODE END 2 */
 
@@ -331,6 +237,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   printf("system is error\r\n");
+  while(1);
   /* USER CODE END Error_Handler_Debug */
 }
 
