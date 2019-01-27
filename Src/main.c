@@ -197,19 +197,21 @@ int main(void)
     }
     printf("update is finish\r\n");
   }
+  if (((*(__IO uint32_t*)APPLICATION_ADDRESS) & 0x2FFE0000 ) == 0x20000000)
+  {
+    printf("going to APP\r\n");
+    HAL_Delay(20);
+    /* Jump to user application */
+    JumpAddress = *(__IO uint32_t*) (APPLICATION_ADDRESS + 4);
+    JumpToApplication = (pFunction) JumpAddress;
+    /* Initialize user application's Stack Pointer */
+    __set_MSP(*(__IO uint32_t*) APPLICATION_ADDRESS);
+    JumpToApplication();
+  }
   else
   {
-    if (((*(__IO uint32_t*)APPLICATION_ADDRESS) & 0x2FFE0000 ) == 0x20000000)
-    {
-      printf("going to APP\r\n");
-      HAL_Delay(200);
-      /* Jump to user application */
-      JumpAddress = *(__IO uint32_t*) (APPLICATION_ADDRESS + 4);
-      JumpToApplication = (pFunction) JumpAddress;
-      /* Initialize user application's Stack Pointer */
-      __set_MSP(*(__IO uint32_t*) APPLICATION_ADDRESS);
-      JumpToApplication();
-    }
+    printf("There is no valid program for address %08x\r\n",APPLICATION_ADDRESS);
+    Error_Handler();
   }
     
   /* USER CODE END 2 */
