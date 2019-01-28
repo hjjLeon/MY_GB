@@ -357,12 +357,12 @@ __weak void BSP_SD_ReadCpltCallback(void)
 uint8_t BSP_SD_IsDetected(void)
 {
   __IO uint8_t status = SD_PRESENT;
-
+/*
   if (BSP_PlatformIsDetected() == 0x0) 
   {
     status = SD_NOT_PRESENT;
   }
-
+*/
   return status;
 }
 

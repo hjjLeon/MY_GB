@@ -105,7 +105,7 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  //SCB->VTOR = FLASH_BASE | 0xC000;
+  SCB->VTOR = FLASH_BASE | 0xC000;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -127,19 +127,19 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
+  //MX_USB_DEVICE_Init();
   MX_USART2_UART_Init();
   MX_DAC_Init();
   MX_ADC1_Init();
-  MX_SPI1_Init();
   MX_SDIO_SD_Init();
-  MX_USB_DEVICE_Init();
+  MX_SPI1_Init();
   //MX_TIM13_Init();
-  //MX_FATFS_Init();
+  MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
   Lcd_Init();			//≥ı ºªØOLED  
-	LCD_Clear(WHITE);
+	LCD_Clear(BLACK);
   printf("system is ready,by Application\r\n");
 
   /* USER CODE END 2 */
@@ -154,7 +154,6 @@ int main(void)
     LCD_Clear(GREEN);
     HAL_Delay(500);
     LCD_Clear(BLUE);
-    printf("sd sta is%d\r\n",HAL_GPIO_ReadPin(SD_DETECT_GPIO_PORT, SD_DETECT_PIN));
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
