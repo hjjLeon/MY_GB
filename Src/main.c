@@ -140,6 +140,11 @@ int main(void)
   HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
   Lcd_Init();			//≥ı ºªØOLED  
 	LCD_Clear(BLACK);
+  if(f_mount(&SDFatFS, (TCHAR const*)SDPath, 0) != FR_OK)
+  {
+    /* FatFs Initialization Error */
+    Error_Handler();
+  }
   printf("system is ready,by Application\r\n");
 
   /* USER CODE END 2 */

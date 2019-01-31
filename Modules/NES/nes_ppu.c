@@ -1,6 +1,5 @@
 #include "nes_ppu.h"
 #include "string.h"
-#include "lcd.h"
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序移植自网友ye781205的NES模拟器工程
 //ALIENTEK STM32开发板
@@ -374,7 +373,7 @@ void scanline_draw(int LineNo)
 	do_scanline_and_draw(ppu->dummy_buffer);	
 	sx=nes_xoff+8;
 	ex=256+8-nes_xoff;
-	if(lcddev.width==480)
+	/*if(lcddev.width==480)
 	{
 		for(i=sx;i<ex;i++)
 		{ 
@@ -497,7 +496,7 @@ void scanline_draw(int LineNo)
 			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
 			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i]];          	
 		}
-	}
+	}*/
 }
 
 void do_scanline_and_dont_draw(int LineNo)

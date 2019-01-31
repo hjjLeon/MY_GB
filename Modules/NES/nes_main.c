@@ -3,19 +3,6 @@
 #include "nes_mapper.h"
 #include "nes_apu.h"
 
-#include "malloc.h" 
-#include "key.h"
-#include "lcd.h"    
-#include "ff.h"
-#include "string.h"
-#include "usart.h" 
-#include "timer.h" 
-#include "joypad.h"    	
-#include "vs10xx.h"    	
-#include "spi.h"      	
-#include "audioplay.h"     	
-#include "spb.h"     
-
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序移植自网友ye781205的NES模拟器工程
 //ALIENTEK STM32开发板
@@ -27,7 +14,7 @@
 ////////////////////////////////////////////////////////////////////////////////// 	 
  
 
-extern vu8 frame_cnt;	//帧计数器 
+//extern vu8 frame_cnt;	//帧计数器 
 int MapperNo;			//map编号
 int NES_scanline;		//nes扫描线
 int VROM_1K_SIZE;
@@ -81,14 +68,14 @@ u8 nes_load_rom(void)
 #if	NES_RAM_SPEED==1	//1:内存占用小 0:速度快	 
 			VROM_tiles=VROM_banks;	 
 #else  
-			VROM_tiles=mymalloc(SRAMEX,RomHeader->num_8k_vrom_banks*8*1024);//这里可能申请多达1MB内存!!!
+			VROM_tiles=mymalloc(SRAMIN1,RomHeader->num_8k_vrom_banks*8*1024);//这里可能申请多达1MB内存!!!
 			if(VROM_tiles==0)VROM_tiles=VROM_banks;//内存不够用的情况下,尝试VROM_titles与VROM_banks共用内存			
 			compile(RomHeader->num_8k_vrom_banks*8*1024/16,VROM_banks,VROM_tiles);  
 #endif	
 		}else 
 		{
-			VROM_banks=mymalloc(SRAMIN,8*1024);
-			VROM_tiles=mymalloc(SRAMEX,8*1024);
+			VROM_banks=mymalloc(SRAMIN1,8*1024);
+			VROM_tiles=mymalloc(SRAMIN1,8*1024);
 			if(!VROM_banks||!VROM_tiles)res=1;
 		}  	
 		VROM_1K_SIZE = RomHeader->num_8k_vrom_banks * 8;
@@ -106,7 +93,7 @@ u8 nes_load_rom(void)
 			switch(MapperNo)
 			{
 				case 1:  
-					MAP1=mymalloc(SRAMIN,sizeof(Mapper1Res)); 
+					MAP1=mymalloc(SRAMIN1,sizeof(Mapper1Res)); 
 					if(!MAP1)res=1;
 					break;
 				case 4:  
@@ -125,7 +112,7 @@ u8 nes_load_rom(void)
 				case 69:
 				case 85:
 				case 189:
-					MAPx=mymalloc(SRAMIN,sizeof(MapperCommRes)); 
+					MAPx=mymalloc(SRAMIN1,sizeof(MapperCommRes)); 
 					if(!MAPx)res=1;
 					break;  
 				default:
@@ -139,25 +126,25 @@ u8 nes_load_rom(void)
 void nes_sram_free(void)
 { 
 	u8 i;
-	myfree(SRAMIN,NES_RAM);		
-	myfree(SRAMIN,NES_SRAM);	
-	myfree(SRAMIN,RomHeader);	
-	myfree(SRAMIN,NES_Mapper);
-	myfree(SRAMIN,spr_ram);		
-	myfree(SRAMIN,ppu);	
-	myfree(SRAMIN,apu);	
-	myfree(SRAMIN,wave_buffers);
-	for(i=0;i<NES_APU_BUF_NUM;i++)myfree(SRAMEX,nesapusbuf[i]);//释放APU BUFs 
-	myfree(SRAMEX,romfile);	  
+	myfree(SRAMIN1,NES_RAM);		
+	myfree(SRAMIN1,NES_SRAM);	
+	myfree(SRAMIN1,RomHeader);	
+	myfree(SRAMIN1,NES_Mapper);
+	myfree(SRAMIN1,spr_ram);		
+	myfree(SRAMIN1,ppu);	
+	myfree(SRAMIN1,apu);	
+	myfree(SRAMIN1,wave_buffers);
+	for(i=0;i<NES_APU_BUF_NUM;i++)myfree(SRAMIN1,nesapusbuf[i]);//释放APU BUFs 
+	myfree(SRAMIN1,romfile);	  
 	if((VROM_tiles!=VROM_banks)&&VROM_banks&&VROM_tiles)//如果分别为VROM_banks和VROM_tiles申请了内存,则释放
 	{
-		myfree(SRAMIN,VROM_banks);
-		myfree(SRAMEX,VROM_tiles);		 
+		myfree(SRAMIN1,VROM_banks);
+		myfree(SRAMIN1,VROM_tiles);		 
 	}
 	switch (MapperNo)//释放map内存
 	{
 		case 1: 			//释放内存
-			myfree(SRAMIN,MAP1);
+			myfree(SRAMIN1,MAP1);
 			break;	 	
 		case 4: 
 		case 6: 
@@ -175,7 +162,7 @@ void nes_sram_free(void)
 		case 69:
 		case 85:
 		case 189:
-			myfree(SRAMIN,MAPx);break;	 		//释放内存 
+			myfree(SRAMIN1,MAPx);break;	 		//释放内存 
 		default:break; 
 	}
 	NES_RAM=0;	
@@ -201,35 +188,35 @@ u8 nes_sram_malloc(u32 romsize)
 	u16 i=0;
 	for(i=0;i<64;i++)//为NES_RAM,查找1024对齐的内存
 	{
-		NES_SRAM=mymalloc(SRAMIN,i*32);
-		NES_RAM=mymalloc(SRAMIN,0X800);	//申请2K字节,必须1024字节对齐
+		NES_SRAM=mymalloc(SRAMIN1,i*32);
+		NES_RAM=mymalloc(SRAMIN1,0X800);	//申请2K字节,必须1024字节对齐
 		if((u32)NES_RAM%1024)			//不是1024字节对齐
 		{
-			myfree(SRAMIN,NES_RAM);		//释放内存,然后重新尝试分配
-			myfree(SRAMIN,NES_SRAM); 
+			myfree(SRAMIN1,NES_RAM);		//释放内存,然后重新尝试分配
+			myfree(SRAMIN1,NES_SRAM); 
 		}else 
 		{
-			myfree(SRAMIN,NES_SRAM); 	//释放内存
+			myfree(SRAMIN1,NES_SRAM); 	//释放内存
 			break;
 		}
 	}	 
- 	NES_SRAM=mymalloc(SRAMIN,0X2000);
-	RomHeader=mymalloc(SRAMIN,sizeof(NES_header));
-	NES_Mapper=mymalloc(SRAMIN,sizeof(MAPPER));
-	spr_ram=mymalloc(SRAMIN,0X100);		
-	ppu=mymalloc(SRAMIN,sizeof(ppu_data));  
-	apu=mymalloc(SRAMIN,sizeof(apu_t));		//sizeof(apu_t)=  12588
-	wave_buffers=mymalloc(SRAMIN,APU_PCMBUF_SIZE);
+ 	NES_SRAM=mymalloc(SRAMIN1,0X2000);
+	RomHeader=mymalloc(SRAMIN1,sizeof(NES_header));
+	NES_Mapper=mymalloc(SRAMIN1,sizeof(MAPPER));
+	spr_ram=mymalloc(SRAMIN1,0X100);		
+	ppu=mymalloc(SRAMIN1,sizeof(ppu_data));  
+	apu=mymalloc(SRAMIN1,sizeof(apu_t));		//sizeof(apu_t)=  12588
+	wave_buffers=mymalloc(SRAMIN1,APU_PCMBUF_SIZE);
 	for(i=0;i<NES_APU_BUF_NUM;i++)
 	{
-		nesapusbuf[i]=mymalloc(SRAMEX,APU_PCMBUF_SIZE+10);//申请内存
+		nesapusbuf[i]=mymalloc(SRAMIN1,APU_PCMBUF_SIZE+10);//申请内存
 	}
- 	romfile=mymalloc(SRAMEX,romsize);			//申请游戏rom空间,等于nes文件大小 
-	if(romfile==NULL)//内存不够?释放主界面占用内存,再重新申请
+ 	romfile=mymalloc(SRAMIN1,romsize);			//申请游戏rom空间,等于nes文件大小 
+	/*if(romfile==NULL)//内存不够?释放主界面占用内存,再重新申请
 	{
 		spb_delete();//释放SPB占用的内存
-		romfile=mymalloc(SRAMEX,romsize);//重新申请
-	}
+		romfile=mymalloc(SRAMIN1,romsize);//重新申请
+	}*/
 	if(i==64||!NES_RAM||!NES_SRAM||!RomHeader||!NES_Mapper||!spr_ram||!ppu||!apu||!wave_buffers||!nesapusbuf[NES_APU_BUF_NUM-1]||!romfile)
 	{
 		nes_sram_free();
@@ -250,7 +237,7 @@ u8 nes_sram_malloc(u32 romsize)
 //PLL,倍频数
 void nes_clock_set(u8 PLL)
 {
-	u16 tPLL=PLL;
+/*	u16 tPLL=PLL;
 	u8 temp=0;	 
 	RCC->CFGR&=0XFFFFFFFC;	//修改时钟频率为内部8M	   
 	RCC->CR&=~0x01000000;  	//PLLOFF  
@@ -269,9 +256,9 @@ void nes_clock_set(u8 PLL)
 	}  
  	//顺便设置延时和串口										  
 	delay_init(tPLL*8);			//延时初始化
-	uart_init(tPLL*8,115200); 	//串口1初始化   
+	uart_init(tPLL*8,115200); 	//串口1初始化*/   
 }  
-extern vu8 nes_spped_para;		//NES游戏进行时,将会对此值设置,默认为0.
+//extern vu8 nes_spped_para;		//NES游戏进行时,将会对此值设置,默认为0.
 
 //开始nes游戏
 //pname:nes游戏路径
@@ -285,26 +272,26 @@ u8 nes_load(u8* pname)
 	FIL *file; 
 	UINT br;
 	u8 res=0;   
-	file=mymalloc(SRAMIN,sizeof(FIL));  
+	file=mymalloc(SRAMIN1,sizeof(FIL));  
 	if(file==0)return 1;						//内存申请失败.  
 	res=f_open(file,(char*)pname,FA_READ);
 	if(res!=FR_OK)	//打开文件失败
 	{
-		myfree(SRAMIN,file);
+		myfree(SRAMIN1,file);
 		return 2;
 	}	 
-	res=nes_sram_malloc(file->fsize);			//申请内存 
+	res=nes_sram_malloc(f_size(file));			//申请内存 
 	if(res==0)
 	{
-		f_read(file,romfile,file->fsize,&br);	//读取nes文件
-		NESrom_crc32=get_crc32(romfile+16, file->fsize-16);//获取CRC32的值	
+		f_read(file,romfile,f_size(file),&br);	//读取nes文件
+		NESrom_crc32=get_crc32(romfile+16, f_size(file)-16);//获取CRC32的值	
 		res=nes_load_rom();						//加载ROM
 		if(res==0) 					
 		{   
 			nes_clock_set(16);					//128M
-			TPAD_Init(16);
-			nes_spped_para=1;					//SPI速度减半
-			JOYPAD_Init();
+			//TPAD_Init(16);
+			//nes_spped_para=1;					//SPI速度减半
+			//JOYPAD_Init();
 			cpu6502_init();						//初始化6502,并复位	  	 
 			Mapper_Init();						//map初始化
 			PPU_reset();						//ppu复位
@@ -313,12 +300,12 @@ u8 nes_load(u8* pname)
 			nes_emulate_frame();				//进入NES模拟器主循环 
 			nes_sound_close();					//关闭声音输出
 			nes_clock_set(9);					//72M  
-			TPAD_Init(6);
-			nes_spped_para=0;					//SPI速度恢复
+			//TPAD_Init(6);
+			//nes_spped_para=0;					//SPI速度恢复
 		}
 	}
 	f_close(file);
-	myfree(SRAMIN,file);//释放内存
+	myfree(SRAMIN1,file);//释放内存
 	nes_sram_free();	//释放内存
 	return res;
 } 
@@ -326,7 +313,7 @@ u8 nes_xoff=0;	//显示在x轴方向的偏移量(实际显示宽度=256-2*nes_xoff)
 //设置游戏显示窗口
 void nes_set_window(void)
 {	
-	u16 xoff=0,yoff=0; 
+/*	u16 xoff=0,yoff=0; 
 	u16 lcdwidth,lcdheight;
 	if(lcddev.width==240)
 	{
@@ -349,22 +336,22 @@ void nes_set_window(void)
 	}	
 	yoff=(lcddev.height-lcdheight)/2;//屏幕高度 
 	LCD_Set_Window(xoff,yoff,lcdwidth,lcdheight);//让NES始终在屏幕的正中央显示
-	LCD_WriteRAM_Prepare();//写入LCD RAM的准备 	
+	LCD_WriteRAM_Prepare();//写入LCD RAM的准备 	*/
 }
-extern void KEYBRD_FCPAD_Decode(uint8_t *fcbuf,uint8_t mode);
+//extern void KEYBRD_FCPAD_Decode(uint8_t *fcbuf,uint8_t mode);
 //读取游戏手柄数据
 void nes_get_gamepadval(void)
 {  
-	PADdata0=JOYPAD_Read();	//读取手柄1的值
+	//PADdata0=JOYPAD_Read();	//读取手柄1的值
 	//PADdata1=0;				//没有手柄2,故不采用. 
 }    
 //nes模拟器主循环
 void nes_emulate_frame(void)
 {  
 	u8 nes_frame;
-	TIM3_Int_Init(10000-1,12800-1);//启动TIM3 ,1s中断一次	
-	nes_set_window();//设置窗口
-	system_task_return=0;
+	//TIM3_Int_Init(10000-1,12800-1);//启动TIM3 ,1s中断一次	
+	//nes_set_window();//设置窗口
+	//system_task_return=0;
 	while(1)
 	{	
 		// LINES 0-239
@@ -394,26 +381,26 @@ void nes_emulate_frame(void)
 			NES_Mapper->HSync(NES_scanline);		  
 		}	   
 		end_vblank(); 
-		nes_get_gamepadval();	//每3帧查询一次USB
-		apu_soundoutput();		//输出游戏声音	 
-		frame_cnt++; 	
+		//nes_get_gamepadval();	//每3帧查询一次USB
+		//apu_soundoutput();		//输出游戏声音	 
+		//frame_cnt++; 	
 		nes_frame++;
 		if(nes_frame>NES_SKIP_FRAME)
 		{
 			nes_frame=0;//跳帧  
-			if(lcddev.id==0X1963)nes_set_window();//重设窗口
+			//if(lcddev.id==0X1963)nes_set_window();//重设窗口
 		}
-		if(system_task_return)
+		/*if(system_task_return)
 		{
  			if(TPAD_Scan(1))//再次确认TPAD返回  
 			{
  				break;
 			}
 			system_task_return=0;
- 		}
+ 		}*/
 	}
-	LCD_Set_Window(0,0,lcddev.width,lcddev.height);//恢复屏幕窗口
-	TIM3->CR1&=~(1<<0);//关闭定时器3
+	//LCD_Set_Window(0,0,lcddev.width,lcddev.height);//恢复屏幕窗口
+	//TIM3->CR1&=~(1<<0);//关闭定时器3
 }
 //在6502.s里面被调用
 void debug_6502(u16 reg0,u8 reg1)
@@ -429,7 +416,7 @@ vu8 nessavebuf=0;		//当前保存到的音频缓冲编号
 //音频播放回调函数
 void nes_vs10xx_feeddata(void)
 {  
-	u8 n;
+	/*u8 n;
 	u8 nbytes;
 	u8 *p; 
 	if(nesplaybuf==nessavebuf)return;//还没有收到新的音频数据
@@ -455,7 +442,7 @@ void nes_vs10xx_feeddata(void)
 			SPI1_ReadWriteByte(p[n]);	 			
 		}
 		VS_XDCS=1;     				   
-	} 
+	} */
 }
 //NES模拟器声音从VS1053输出,模拟WAV解码的wav头数据.
 const u8 nes_wav_head[]=
@@ -468,7 +455,7 @@ const u8 nes_wav_head[]=
 //NES打开音频输出
 int nes_sound_open(int samples_per_sync,int sample_rate) 
 {
-	u8 *p;
+	/*u8 *p;
 	u8 i; 
 	p=mymalloc(SRAMIN,100);	//申请100字节内存
 	if(p==NULL)return 1;	//内存申请失败,直接退出
@@ -495,19 +482,19 @@ int nes_sound_open(int samples_per_sync,int sample_rate)
 	while(VS_Send_MusicData(p+32));	//发送wav head
 	TIM6_Int_Init(100-1,1280-1);	//1ms中断一次
 	myfree(SRAMIN,p);				//释放内存
-	return 1;
+	return 1;*/
 }
 //NES关闭音频输出
 void nes_sound_close(void) 
 { 
-	TIM6->CR1&=~(1<<0);				//关闭定时器6
+	/*TIM6->CR1&=~(1<<0);				//关闭定时器6
 	VS_SPK_Set(0);					//关闭喇叭输出 
-	VS_Set_Vol(0);					//设置音量为0 	
+	VS_Set_Vol(0);					//设置音量为0 */	
 } 
 //NES音频输出到VS1053缓存
 void nes_apu_fill_buffer(int samples,u8* wavebuf)
 {	 
- 	u16	i;	
+ 	/*u16	i;	
 	u8 tbuf;
 	for(i=0;i<APU_PCMBUF_SIZE;i++)
 	{
@@ -520,7 +507,7 @@ void nes_apu_fill_buffer(int samples,u8* wavebuf)
 	{ 
 		delay_ms(5);
 	}
-	nessavebuf=tbuf; 
+	nessavebuf=tbuf;*/ 
 }	
 
 
