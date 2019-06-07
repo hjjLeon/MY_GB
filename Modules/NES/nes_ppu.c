@@ -1,8 +1,9 @@
 #include "nes_ppu.h"
+#include "nes_ppu.h"
 #include "string.h"
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序移植自网友ye781205的NES模拟器工程
-//ALIENTEK STM32开发板
+//ALIENTEK STM32F407开发板
 //NES PPU 驱动代码	   
 //正点原子@ALIENTEK
 //技术论坛:www.openedv.com
@@ -300,8 +301,14 @@ void PPU_reset(void)
   ppu->read_2007_buffer = 0;
   ppu->current_frame_line = 0;
               
-  if(RomHeader->flags_1 &0x01)set_mirroring(0,1,0,1);//垂直镜像	//  PPU_set_mirroring(); 设置镜像
-  else set_mirroring(0,0,1,1);//水平镜像
+  if(RomHeader->flags_1 &0x01)
+  {
+    set_mirroring(0,1,0,1);//垂直镜像	//  PPU_set_mirroring(); 设置镜像
+  }
+  else 
+  {
+    set_mirroring(0,0,1,1);//水平镜像
+  }
 
 }
 //***********************************************************************************************
@@ -365,14 +372,49 @@ void do_scanline_and_draw(uint8* buf)
   ppu->current_frame_line++;  
 }
 
+
+  u16 fb[240];
 extern u8 nes_xoff;	//显示在x轴方向的偏移量(实际显示宽度=256-2*nes_xoff)
 void scanline_draw(int LineNo)
 {
-	uint16 i; 
+	uint16 i,j; 
 	u16 sx,ex;
 	do_scanline_and_draw(ppu->dummy_buffer);	
 	sx=nes_xoff+8;
 	ex=256+8-nes_xoff;
+
+static uint16_t test = 0;
+  
+  if(test == 240)
+  {
+    test = 0;
+    Address_set(0,0,240-1,240-1);
+  }
+  for(i=sx,j=0;i<ex;i++,j++)
+  {
+    fb[j] = NES_Palette[ppu->dummy_buffer[i]];
+  }
+  LCD_WR_DATAS(fb, 240);
+  test++;
+
+  /*u16* fb;
+  fb = mymalloc(SRAMIN1, 240*2);
+  if(fb != NULL)
+  {
+    for(i=sx,j=0;i<ex;i++,j++)
+    {
+      //LCD_WR_DATA(NES_Palette[ppu->dummy_buffer[i]]);	
+      fb[j] = NES_Palette[ppu->dummy_buffer[i]];
+    }
+    LCD_WR_DATAS(fb, 240);
+  }
+  else
+  {
+    for(i=sx;i<ex;i++)
+    {
+      LCD_WR_DATA(NES_Palette[ppu->dummy_buffer[i]]);	 			 
+    }
+  }*/
 	/*if(lcddev.width==480)
 	{
 		for(i=sx;i<ex;i++)
@@ -479,22 +521,7 @@ void scanline_draw(int LineNo)
 	{
 		for(i=sx;i<ex;i++)
 		{ 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i++]]; 
-			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i]];          	
+			LCD->LCD_RAM=NES_Palette[ppu->dummy_buffer[i]];         	
 		}
 	}*/
 }

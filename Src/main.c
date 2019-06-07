@@ -56,7 +56,6 @@
 #include "fatfs.h"
 #include "sdio.h"
 #include "spi.h"
-#include "tim.h"
 #include "usart.h"
 #include "usb_device.h"
 #include "gpio.h"
@@ -106,6 +105,7 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
   //SCB->VTOR = FLASH_BASE | 0xC000;
+  uint8_t res;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -127,14 +127,13 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-  //MX_USB_DEVICE_Init();
   MX_USART2_UART_Init();
   MX_DAC_Init();
   MX_ADC1_Init();
   MX_SDIO_SD_Init();
   MX_SPI1_Init();
-  //MX_TIM13_Init();
   MX_FATFS_Init();
+  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
@@ -159,6 +158,9 @@ int main(void)
     LCD_Clear(GREEN);
     HAL_Delay(500);
     LCD_Clear(BLUE);
+    
+		res = nes_load("0:/my.nes");	//¿ªÊ¼nesÓÎÏ·
+    printf("error %d\r\n", res);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

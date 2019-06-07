@@ -3,7 +3,7 @@
 #include "nes_main.h"
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序移植自网友ye781205的NES模拟器工程
-//ALIENTEK STM32开发板
+//ALIENTEK STM32F407开发板
 //NES APU 驱动代码	   
 //正点原子@ALIENTEK
 //技术论坛:www.openedv.com
@@ -11,11 +11,8 @@
 //版本：V1.0  			  
 ////////////////////////////////////////////////////////////////////////////////// 	 
 
-#define NES_APU_BUF_NUM			20						//20个APU BUF
-#define APU_SAMPLE_RATE 		11025					//APU音频输出为11.025Khz
-#define APU_PCMBUF_SIZE  		APU_SAMPLE_RATE/60		//44100/60=735		
-														//22050/60=367
-														//11025/60=183
+#define APU_SAMPLE_RATE 		22050					//APU音频输出为22.050Khz 
+#define APU_PCMBUF_SIZE  		APU_SAMPLE_RATE/60		//44100/60=735		22050/60=367
 
 
 #undef   NULL
@@ -252,14 +249,14 @@ typedef struct apu_s
 } apu_t;
 
 extern apu_t *apu;
-extern u8 *wave_buffers; 
+extern u16 *wave_buffers; 
 
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
 extern void apu_init(void);
 extern void apu_setparams(int sample_rate, int refresh_rate, int frag_size,int sample_bits);
-extern void apu_process(u8 *buffer, int num_samples);
+extern void apu_process(u16 *buffer, int num_samples);
 extern void apu_reset(void);
 	
 extern u8 Apu_Read4015(u32 address);

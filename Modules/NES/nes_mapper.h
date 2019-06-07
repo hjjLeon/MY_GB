@@ -4,7 +4,7 @@
 #include "nes_ppu.h" 
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序移植自网友ye781205的NES模拟器工程
-//ALIENTEK STM32开发板
+//ALIENTEK STM32F407开发板
 //NES MAP 驱动代码	   
 //正点原子@ALIENTEK
 //技术论坛:www.openedv.com
@@ -75,7 +75,7 @@ extern  uint32 VROM_mask;
 
 extern Mapper1Res *MAP1;
 extern MapperCommRes *MAPx;   
-extern u32 NESrom_crc32; 
+ 
 
 ////////////////////////////////////////////////////////////////////////////////// 	
 void Mapper_Init(void);

@@ -2,7 +2,7 @@
 #include "malloc.h"	
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序移植自网友ye781205的NES模拟器工程
-//ALIENTEK STM32开发板
+//ALIENTEK STM32F407开发板
 //NES APU 驱动代码	   
 //正点原子@ALIENTEK
 //技术论坛:www.openedv.com
@@ -975,54 +975,30 @@ void apu_regwrite(u32 address, u8 value)
 /* Read from $4000-$4017 */
 u8 Apu_Read4015(u32 address)//***********************************************************************
 {
-   uint8 value=0;
-	
-#ifdef FRAME_IRQ
-	if(!(frame_irq_enabled & 0xC0))  
-#endif   
-	{
-		/* Return 1 in 0-5 bit pos if a channel is playing */
-		if (apu->rectangle[0].enabled && apu->rectangle[0].vbl_length)value |= 0x01; 
-		if (apu->rectangle[1].enabled && apu->rectangle[1].vbl_length)value |= 0x02; 
-		if (apu->triangle.enabled && apu->triangle.vbl_length)value |= 0x04; 
-		if (apu->noise.enabled && apu->noise.vbl_length)value |= 0x08;  
-		/* bodge for timestamp queue */
-		if (apu->dmc.enabled)value |= 0x10;  
-		if (apu->dmc.irq_occurred)value |= 0x80;   
-	} 
-#ifdef FRAME_IRQ   
-	return value | 0x40;
-#else
-	return value;
-#endif   
-}
-void Apu_Write4017(uint8 value,uint32 address )
-{	
-#ifdef FRAME_IRQ
-	apudata_t d;
-	
-    if(!frame_irq_disenabled)
-	{
-      frame_irq_enabled = value;
-	}
-	if(apu->ext)
-      {
-        apu_memwrite* mw = apu->ext->mem_write;
+   u8 value=0;
 
-        while(mw->max_range != -1)
-        {
-          if((mw->min_range <= address) && ((mw->max_range >= address)))
-          {
-            d.timestamp = clocks;//d.timestamp = nes6502_getcycles(FALSE);
-            d.address = address|0x4000;
-            d.value = value;
-            apu_enqueue(&d);
-            break;
-          }
-          mw++;
-        }
-      }	
-#endif
+//	if(!(frame_irq_enabled & 0xC0))
+	{
+      /* Return 1 in 0-5 bit pos if a channel is playing */
+      if (apu->rectangle[0].enabled && apu->rectangle[0].vbl_length)
+         value |= 0x01;
+      if (apu->rectangle[1].enabled && apu->rectangle[1].vbl_length)
+         value |= 0x02;
+      if (apu->triangle.enabled && apu->triangle.vbl_length)
+         value |= 0x04;
+      if (apu->noise.enabled && apu->noise.vbl_length)
+         value |= 0x08;
+
+      /* bodge for timestamp queue */
+      if (apu->dmc.enabled)
+         value |= 0x10;
+
+      if (apu->dmc.irq_occurred)
+         value |= 0x80;
+
+      return value | 0x40;	  
+   } 
+//	return value;
 }
 void Apu_Write4015(u8 value,u32 address )
 {
@@ -1050,7 +1026,7 @@ void apu_getpcmdata(void **data, int *num_samples, int *sample_bits)
 }
 //                              _local_sample_size = 8 
 //    apu_process(buf, buf_len/(_local_sample_size/8));
-void apu_process(u8 *buffer, int num_samples)
+void apu_process(u16 *buffer, int num_samples)
 {
    apudata_t *d;
    u32 elapsed_cycles;
@@ -1122,8 +1098,7 @@ void apu_process(u8 *buffer, int num_samples)
          if (accum > 0x7FFF)accum = 0x7FFF;
          else if (accum < -0x8000)accum = -0x8000;
 		 
-		 *buffer++ = (accum >> 8) ^ 0x80;//音频数据存入缓冲
-         //*buffer++=(u16)accum;//音频数据存入缓冲
+         *buffer++=(u16)accum;//音频数据存入缓冲
       }
    } 
    /* resync cycle counter 重新同步循环计数器*/
@@ -1200,7 +1175,7 @@ void apu_init(void)
 	apu->rectangle[1].sweep_complement = FALSE;
 	apu->ext = NULL;
 	//apu_setparams(sample_rate, refresh_rate, frag_size, sample_bits);
-	apu_setparams(APU_SAMPLE_RATE,60,0,8);//APU_SAMPLE_RATE       //采样率
+	apu_setparams(APU_SAMPLE_RATE,60,0,16);//APU_SAMPLE_RATE为22050Hz        //采样率
 	apu_reset();
 	for(channel=0;channel<6;channel++)apu_setchan(channel,TRUE);
 	apu->filter_type=APU_FILTER_LOWPASS;	//设置筛选器类型 

@@ -1,561 +1,19 @@
 
-
-globalptr	RN r10 ;//=wram_globals* ptr 6502的基准指针
-;----------------------------------------------------------------------------
-
- MAP 0,globalptr		  ;//MAP 用于定义一个结构化的内存表的首地址
-				;//6502.s	  ;//定义内存表的首地址为globalptr
-opz #   4              ;opz # 256*4       ;//代码表地址					  
-readmem_tbl # 8*4			  ;//8*4
-writemem_tbl # 8*4			  ;//8*4
-memmap_tbl # 8*4			 ;//存储器映象 ram+rom
-cpuregs # 7*4				 ;//1208存放6502寄存器保存的开始地址
-m6502_s # 4					 ;//
-lastbank # 4				;//6502PC从 ROM的最后偏移量
-nexttimeout # 4
-
-rombase # 4			;//ROM开始地址
-romnumber # 4		 ;// ROM大小  
-rommask # 4		   ;//ROM掩膜	rommask=romsize-1
-
-joy0data # 4	   ;//串行数据
-joy1data # 4	   ;//手柄1串行数据
-
-clocksh # 4    ;//执行的时钟数 apu用
-cpunmif # 4      ;cpu中断标志
-cpuirqf # 4      ;cpu中断标志   43*4
-;***********************************************************************************************
-C EQU 0x01	;//6502 flags  6502标志
-Z EQU 0x02
-I EQU 0x04
-D EQU 0x08
-B EQU 0x10	;//(allways 1 except when IRQ pushes it)IRQ外部中断
-R EQU 0x20	;//(locked at 1)
-V EQU 0x40
-N EQU 0x80
-
-	MACRO		;//translate from 6502 PC to rom offset翻译从6502 PC ROM的偏移量
-	encodePC
-	and r1,m6502_pc,#0xE000	   ;//r9和0xe000按位与运算
-	adr r2,memmap_tbl		   ;//把存储器映象地址加载到r2
-;//	ldr r0,[r2,r1,lsr#11]	   ;//改过，加2行 
-	lsr r0,r1,#11				;//>>11位	  r1/2048
-	ldr r0,[r2,r0]				;//读取r2地址+r1偏移的数据到r0
-	
-	str r0,lastbank				;//保存6502PC从 ROM的最后偏移量 
-	add m6502_pc,m6502_pc,r0	;//m6502_pc+r0
-	MEND
-
-	MACRO		;//pack 6502 flags into r0   6502标志包装到R0
-	encodeP $extra
-	and r0,cycles,#CYC_V+CYC_D+CYC_I+CYC_C
-	tst m6502_nz,#0x80000000;//PSR_N
-	orrne r0,r0,#N				;N
-	tst m6502_nz,#0xff
-	orreq r0,r0,#Z				;Z
-	orr r0,r0,#$extra			;R(&B)
-	MEND
-
-	MACRO		;//;宏定义//unpack 6502 flags from r0	  解压缩6502从R0的标志
-	decodeP
-	bic cycles,cycles,#CYC_V+CYC_D+CYC_I+CYC_C
-	and r1,r0,#V+D+I+C
-	orr cycles,cycles,r1		;//VDIC
-	bic m6502_nz,r0,#0xFD			;//r0 is signed
-	eor m6502_nz,m6502_nz,#Z
-	MEND		;//		  ;宏定义结束
-
-	MACRO
-	fetch $count			   ;//提取操作码	;$标号 宏名 $参数1，$参数2，...
-;//---------------------------------------------------------------------
-	ldr r0,clocksh			   ;//处理apu需要的时钟数
-	add r0,r0,#$count
-	str r0,clocksh
-
-	ldr r1,opz            ;//获取代码跳转表地址
-;//-------------------------------------------------------------------------
-	subs cycles,cycles,#$count*256;//CYCLE=256 ;//	3*256 正数或0就执行下2条指令  
-	ldrplb r0,[m6502_pc],#1			   ; //从存储器中加载字节到一个寄存器中	 r0=操作码
-;	ldrpl pc,[m6502_optbl,r0,lsl#2]	  ;//r10 ********r0=r0x4***运行代码的地址**************************************
-	ldrpl pc,[r1,r0,lsl#2]
-	ldr pc,nexttimeout
-	MEND
-
-	MACRO						;//相同的提取，但它增加了进位（位0）
-	fetch_c $count				;//same as fetch except it adds the Carry (bit 0) also.
-;//---------------------------------------------------------------------
-	ldr r0,clocksh				;//处理apu需要的时钟数
-	add r0,r0,#$count
-	str r0,clocksh	
-	
-	ldr r1,opz       ;//获取代码跳转表地址
-;//-------------------------------------------------------------------------
-	sbcs cycles,cycles,#$count*256;//CYCLE=256
-	ldrplb r0,[m6502_pc],#1
-;	ldrpl pc,[m6502_optbl,r0,lsl#2]
-	ldrpl pc,[r1,r0,lsl#2]
-	ldr pc,nexttimeout
-	MEND
-
-	MACRO
-	clearcycles
-	and cycles,cycles,#CYC_MASK		;Save CPU bits
-	MEND
-
-	MACRO
-	readmemabs
-	and r1,addy,#0xE000
-	adr lr,%F0
-;//	ldr pc,[m6502_rmem,r1,lsr#11]	;//in: addy,r1=addy&0xE000 (for rom_R)
-	lsr r1,r1,#11				 ;//改过，加2行	 >>11
-	ldr pc,[m6502_rmem,r1]
-				
-0				;//out: r0=val (bits 8-31=0 (LSR,ROR,INC,DEC,ASL)), addy preserved for RMW instructions
-	MEND
-
-	MACRO
-	readmemzp
-	ldrb r0,[cpu_zpage,addy]
-	MEND
-
-	MACRO
-	readmemzpi
-;//	ldrb r0,[cpu_zpage,addy,lsr#24]
-	lsr r0,addy,#24				  ;//改过，加3行
-	ldrb r0,[cpu_zpage,r0]
-
-	MEND
-
-	MACRO
-	readmemzps
-	ldrsb m6502_nz,[cpu_zpage,addy];RAM
-	MEND
-
-	MACRO
-	readmemimm
-	ldrb r0,[m6502_pc],#1  ;ROM
-	MEND
-
-	MACRO
-	readmemimms
-	ldrsb m6502_nz,[m6502_pc],#1
-	MEND
-
-	MACRO
-	readmem
-	[ _type = _ABS
-		readmemabs
-	]
-	[ _type = _ZP
-		readmemzp
-	]
-	[ _type = _ZPI
-		readmemzpi
-	]
-	[ _type = _IMM
-		readmemimm
-	]
-	MEND
-
-	MACRO
-	readmems
-	[ _type = _ABS
-		readmemabs
-		orr m6502_nz,r0,r0,lsl#24
-	]
-	[ _type = _ZP
-		readmemzps
-	]
-	[ _type = _IMM
-		readmemimms
-	]
-	MEND
-
-
-	MACRO
-	writememabs
-	and r1,addy,#0xe000
-	adr r2,writemem_tbl
-	adr lr,%F0
-;//	ldr pc,[r2,r1,lsr#11]	;//in: addy,r0=val(bits 8-31=?)
-	lsr r1,r1,#11				 ;//改过，加2行 >>11
-	ldr pc,[r2,r1]
-
-0				;out: r0,r1,r2,addy=?
-	MEND
-
-	MACRO
-	writememzp
-	strb r0,[cpu_zpage,addy]
-	MEND
-
-	MACRO
-	writememzpi
-;//	strb r0,[cpu_zpage,addy,lsr#24]
-	lsr r1,addy,#24				 ;//改过，加2行	 >>24
-	strb r0,[cpu_zpage,r1]
-
-
-	MEND
-
-	MACRO
-	writemem			   ;//写内存
-	[ _type = _ABS
-		writememabs
-	]
-	[ _type = _ZP
-		writememzp
-	]
-	[ _type = _ZPI
-		writememzpi
-	]
-	MEND
-;----------------------------------------------------------------------------
-
-	MACRO					  ;///////////////////////////////// /////////////////////
-	push16		;push r0
-	mov r1,r0,lsr#8
-	ldr r2,m6502_s
-	strb r1,[r2],#-1
-	orr r2,r2,#0x100
-	strb r0,[r2],#-1
-	strb r2,m6502_s
-	MEND		;r1,r2=?
-
-	MACRO
-	push8 $x
-	ldr r2,m6502_s
-	strb $x,[r2],#-1
-	strb r2,m6502_s
-	MEND		;r2=?
-
-	MACRO
-	pop16		;pop m6502_pc
-	ldrb r2,m6502_s
-	add r2,r2,#2
-	strb r2,m6502_s
-	ldr r2,m6502_s
-	ldrb r0,[r2],#-1
-	orr r2,r2,#0x100
-	ldrb m6502_pc,[r2]
-	orr m6502_pc,m6502_pc,r0,lsl#8
-	MEND		;r0,r1=?
-
-	MACRO
-	pop8 $x
-	ldrb r2,m6502_s
-	add r2,r2,#1
-	strb r2,m6502_s
-	orr r2,r2,#0x100
-	ldrsb $x,[cpu_zpage,r2]		;signed for PLA & PLP
-
-	MEND	;r2=?
-
-;----------------------------------------------------------------------------
-;doXXX: load addy, increment m6502_pc
-
-	GBLA _type
-
-_IMM	EQU 1						;immediate
-_ZP		EQU 2						;zero page
-_ZPI	EQU 3						;zero page indexed
-_ABS	EQU 4						;absolute
-
-	MACRO
-	doABS                           ;absolute               $nnnn
-_type	SETA      _ABS
-	ldrb addy,[m6502_pc],#1
-	ldrb r0,[m6502_pc],#1
-	orr addy,addy,r0,lsl#8
-	MEND
-
-	MACRO
-	doAIX                           ;absolute indexed X     $nnnn,X
-_type	SETA      _ABS
-	ldrb addy,[m6502_pc],#1
-	ldrb r0,[m6502_pc],#1
-	orr addy,addy,r0,lsl#8
-	add addy,addy,m6502_x,lsr#24
-;	bic addy,addy,#0xff0000 ;Base Wars needs this
-	MEND
-
-	MACRO
-	doAIY                           ;absolute indexed Y     $nnnn,Y
-_type	SETA      _ABS
-	ldrb addy,[m6502_pc],#1
-	ldrb r0,[m6502_pc],#1
-	orr addy,addy,r0,lsl#8
-	add addy,addy,m6502_y,lsr#24
-;	bic addy,addy,#0xff0000 ;Tecmo Bowl needs this
-	MEND
-
-	MACRO
-	doIMM                           ;immediate              #$nn
-_type	SETA      _IMM
-	MEND
-
-	MACRO
-	doIIX                           ;indexed indirect X     ($nn,X)
-_type	SETA      _ABS
-	ldrb r0,[m6502_pc],#1
-	add r0,m6502_x,r0,lsl#24
-	;//ldrb addy,[cpu_zpage,r0,lsr#24]	;//错误:指定的转变不允许
-    lsr addy,r0,#24			  ;//改过，加2行 >>24
-	ldrb addy,[cpu_zpage,addy]
-
-	add r0,r0,#0x01000000
-	;//ldrb r1,[cpu_zpage,r0,lsr#24]	;//R1,LSR#2;将R1中的内容右移2位
-	lsr r1,r0,#24			  ;//改过，加2行
-	ldrb r1,[cpu_zpage,r1]
-
-	orr addy,addy,r1,lsl#8
-	MEND
-
-	MACRO
-	doIIY                           ;indirect indexed Y     ($nn),Y
-_type	SETA      _ABS
-	ldrb r0,[m6502_pc],#1
-;//	ldrb addy,[r0,cpu_zpage]! ;;在数据传送之前,将偏移量加到Rn 中,其结果作为传送数据的存储地址
-                            ;//若使用后缀"!",则结果写回到Rn中
-	ldrb addy,[r0,cpu_zpage]
-	add r0,r0,cpu_zpage			;//////////////////////////////////////
-
-
-	ldrb r1,[r0,#1]
-	orr addy,addy,r1,lsl#8
-	add addy,addy,m6502_y,lsr#24
-;	bic addy,addy,#0xff0000 ;Zelda2 needs this
-	MEND
-
-	MACRO
-	doZPI							;Zeropage indirect     ($nn)
-_type	SETA      _ABS
-	ldrb r0,[m6502_pc],#1
-;//	ldrb addy,[r0,cpu_zpage]!;;在数据传送之前,将偏移量加到Rn 中,其结果作为传送数据的存储地址
-                            ;//若使用后缀"!",则结果写回到Rn中
-	ldrb addy,[r0,cpu_zpage]
-	add r0,r0,cpu_zpage	
-	
-	
-	ldrb r1,[r0,#1]
-	orr addy,addy,r1,lsl#8
-	MEND
-
-	MACRO
-	doZ                             ;zero page              $nn
-_type	SETA      _ZP
-	ldrb addy,[m6502_pc],#1
-	MEND
-
-	MACRO
-	doZ2							;zero page              $nn
-_type	SETA      _ZP
-	ldrb addy,[m6502_pc],#2			;ugly thing for bbr/bbs
-	MEND
-
-	MACRO
-	doZIX                           ;zero page indexed X    $nn,X
-_type	SETA      _ZP
-	ldrb addy,[m6502_pc],#1
-	add addy,addy,m6502_x,lsr#24
-	and addy,addy,#0xff ;Rygar needs this
-	MEND
-
-	MACRO
-	doZIXf							;zero page indexed X    $nn,X
-_type	SETA      _ZPI
-	ldrb addy,[m6502_pc],#1
-	add addy,m6502_x,addy,lsl#24
-	MEND
-
-	MACRO
-	doZIY                           ;zero page indexed Y    $nn,Y
-_type	SETA      _ZP
-	ldrb addy,[m6502_pc],#1
-	add addy,addy,m6502_y,lsr#24
-	and addy,addy,#0xff
-	MEND
-
-	MACRO
-	doZIYf							;zero page indexed Y    $nn,Y
-_type	SETA      _ZPI
-	ldrb addy,[m6502_pc],#1
-	add addy,m6502_y,addy,lsl#24
-	MEND
-
-;----------------------------------------------------------------------------
-
-	MACRO
-	opADC
-	readmem
-	movs r1,cycles,lsr#1		;get C
-	subcs r0,r0,#0x00000100
-	adcs m6502_a,m6502_a,r0,ror#8
-	mov m6502_nz,m6502_a,asr#24		;NZ
-	orr cycles,cycles,#CYC_C+CYC_V	;Prepare C & V
-	bicvc cycles,cycles,#CYC_V	;V
-	MEND
-
-	MACRO
-	opAND
-	readmem
-	and m6502_a,m6502_a,r0,lsl#24
-	mov m6502_nz,m6502_a,asr#24		;NZ
-	MEND
-
-	MACRO
-	opASL
-	readmem
-	 add r0,r0,r0
-	 orrs m6502_nz,r0,r0,lsl#24		;NZ
-	 orr cycles,cycles,#CYC_C		;Prepare C
-	writemem
-	MEND
-
-	MACRO
-	opBIT
-	readmem
-	bic cycles,cycles,#CYC_V		;reset V
-	tst r0,#V
-	orrne cycles,cycles,#CYC_V		;V
-	and m6502_nz,r0,m6502_a,lsr#24	;Z
-	orr m6502_nz,m6502_nz,r0,lsl#24	;N
-	MEND
-
-	MACRO
-	opCOMP $x			;A,X & Y
-	readmem
-	subs m6502_nz,$x,r0,lsl#24
-	mov m6502_nz,m6502_nz,asr#24	;NZ
-	orr cycles,cycles,#CYC_C	;Prepare C
-	MEND
-
-	MACRO
-	opDEC
-	readmem
-	sub r0,r0,#1
-	orr m6502_nz,r0,r0,lsl#24		;NZ
-	writemem
-	MEND
-
-	MACRO
-	opEOR
-	readmem
-	eor m6502_a,m6502_a,r0,lsl#24
-	mov m6502_nz,m6502_a,asr#24		;NZ
-	MEND
-
-	MACRO
-	opINC
-	readmem
-	add r0,r0,#1
-	orr m6502_nz,r0,r0,lsl#24		;NZ
-	writemem
-	MEND
-
-	MACRO
-	opLOAD $x
-	readmems
-	mov $x,m6502_nz,lsl#24
-	MEND
-
-	MACRO
-	opLSR
-	[ _type = _ABS
-		readmemabs
-		movs r0,r0,lsr#1
-		orr cycles,cycles,#CYC_C	;Prepare C
-		mov m6502_nz,r0				;Z, (N=0)
-		writememabs
-	]
-	[ _type = _ZP
-		ldrb m6502_nz,[cpu_zpage,addy]
-		movs m6502_nz,m6502_nz,lsr#1	;Z, (N=0)
-		orr cycles,cycles,#CYC_C	;Prepare C
-		strb m6502_nz,[cpu_zpage,addy]
-	]
-	[ _type = _ZPI
-;//		ldrb m6502_nz,[cpu_zpage,addy,lsr#24]
-		lsr m6502_nz,addy,#24				  ;//改过，加2行
-		ldrb m6502_nz,[cpu_zpage,m6502_nz]
-
-		movs m6502_nz,m6502_nz,lsr#1	;Z, (N=0)
-		orr cycles,cycles,#CYC_C	;Prepare C
-;//		strb m6502_nz,[cpu_zpage,addy,lsr#24]
-		lsr r1,addy,#24				   ;//改过，加2行
-		strb m6502_nz,[cpu_zpage,r1]
-										 
-	]
-	MEND
-
-	MACRO
-	opORA
-	readmem
-	orr m6502_a,m6502_a,r0,lsl#24
-	mov m6502_nz,m6502_a,asr#24
-	MEND
-
-	MACRO
-	opROL
-	readmem
-	 movs cycles,cycles,lsr#1		;get C
-	 adc r0,r0,r0
-	 orrs m6502_nz,r0,r0,lsl#24		;NZ
-	 adc cycles,cycles,cycles		;Set C
-	writemem
-	MEND
-
-	MACRO
-	opROR
-	readmem
-	 movs cycles,cycles,lsr#1		;get C
-	 orrcs r0,r0,#0x100
-	 movs r0,r0,lsr#1
-	 orr m6502_nz,r0,r0,lsl#24		;NZ
-	 adc cycles,cycles,cycles		;Set C
-	writemem
-	MEND
-
-	MACRO
-	opSBC
-	readmem
-	movs r1,cycles,lsr#1			;get C
-	sbcs m6502_a,m6502_a,r0,lsl#24
-	and m6502_a,m6502_a,#0xff000000
-	mov m6502_nz,m6502_a,asr#24 		;NZ
-	orr cycles,cycles,#CYC_C+CYC_V	;Prepare C & V
-	bicvc cycles,cycles,#CYC_V		;V
-	MEND
-
-	MACRO
-	opSTORE $x
-	mov r0,$x,lsr#24
-	writemem
-	MEND
-;*************************************************************************************************
+	INCLUDE equates.s
+	INCLUDE 6502mac.s
 
 	IMPORT NES_RAM		 ;nes_main.c   __align(1024) uint8 NES_RAM[0x800];//保持1024字节对齐
 	IMPORT NES_SRAM		 ;nes_main.c   uint8 NES_SRAM[0x2000];	
 	IMPORT spr_ram		 ;             uint8 spr_ram[0x100];
-	IMPORT romfile ;from main.c	
 
 	EXPORT cpunmi    ;cpu中断标志
 	EXPORT cpuirq    ;cpu中断标志 
 	EXPORT clocks    ;apu要的cpu时钟
 	EXPORT cpu_data	   ;地址 cart.s
-	EXPORT rommap
 	EXPORT NMI6502
 	EXPORT CPU_reset
 	EXPORT run6502
-		
-	EXPORT cpu6502_init
-	EXPORT map67_	
-	EXPORT map67_0	
-	EXPORT map89_
-	EXPORT mapAB_
-	EXPORT mapCD_
-	EXPORT mapEF_	
-	EXPORT map89ABCDEF_
+	EXPORT op_table	
 
 IRQ_VECTOR		EQU 0xfffe ; //IRQ / BRK中断向量地址
 RES_VECTOR		EQU 0xfffc ;// 复位中断向量地址
@@ -1617,191 +1075,6 @@ _xx;	???					;invalid opcode	无效的操作码
 	
 	fetch 2
 
-;***************************************************************************************************
-
- AREA rom_code, CODE, READONLY
-;	THUMB
-   PRESERVE8 
-	
-;----------------------------------------------------------------------------
-cpu6502_init PROC
-;----------------------------------------------------------------------------
-	stmfd sp!,{r4-r11,lr}
-		
-    ldr r10,=cpu_data	;读取地址
-	ldr r11,=NES_RAM	;r11=cpu_zpage
-	
-        ldr r11,[r11]       ;NES_RAM用了指针 
-;*******************************************************		
-		str r11,memmap_tbl             ;NES_RAM用了指针
-		str r11,memmap_tbl+4
-		str r11,memmap_tbl+8
-  
-		ldr r0,=NES_SRAM              ;NES_SRAM用了指针
-		ldr r0,[r0]
-		str r0,memmap_tbl+12
-;**********************************************************************			
-
-	ldr r0,=romfile		 
-	ldr r0,[r0]			 ;R0现在指向ROM映像（包括头）
-	add r3,r0,#16		;r3现在指向rom镜像(不包括头）
-	str r3,rombase		;设置rom基地址
-						;r3=rombase til end of loadcart so DON'T FUCK IT UP
-	mov r2,#1
-	ldrb r1,[r3,#-12]	; 16kB PROM的数目  	 2
-	rsb r0,r2,r1,lsl#14	 ;romsize=X*16KB	 <<14 逆向减法指令	 r0=0x7fff
-	str r0,rommask		;rommask=promsize-1	 32768-1	
-;------------------------------------------------------------------------------------	
-	mov r9,#0		;(消除任何encodePC的映射器*初始化过程中的错误)
-	str r9,lastbank		;6502PC从 ROM的最后偏移量写0
-
-	mov r0,#0			;默认rom映射
-	bl map89AB_			;89AB=1st 16k
-	mov r0,#-1
-	bl mapCDEF_			;CDEF=last 16k
-		
-;------------------------------------------------------------------------------
-    ldrb r1,[r3,#-10]		;get mapper#
-	ldrb r2,[r3,#-9]
-	tst r2,#0x0e			;long live DiskDude!
-	and r1,r1,#0xf0
-	and r2,r2,#0xf0
-	orr r0,r2,r1,lsr#4
-	movne r0,r1,lsr#4		;ignore high nibble if header looks bad	忽略高四位，如果头看起来很糟糕
-                            ;r0=mapper号
-;--------------------------------------------------------------------------------	
-		
-	ldr r0,=Mapper_W           ;保存处理mapper的函数地址
-	str r0,writemem_tbl+16
-	str r0,writemem_tbl+20
-	str r0,writemem_tbl+24
-	str r0,writemem_tbl+28
-
-;-------------------------------------------------------------------------------
-	bl CPU_reset		;reset everything else
-	ldmfd sp!,{r4-r11,lr}
-	bx lr
-	ENDP
-
-;----------------------------------------------------------------------------
-map67_0	;mapper3 r0=page# ;6502.s俄罗斯方块需要
-;----------------------------------------------------------------------------
-	ldr r10,=cpu_data	;读取地址
-	mov r9,#0		;(消除任何encodePC的映射器*初始化过程中的错误)
-	str r9,lastbank		;6502PC从 ROM的最后偏移量写0
-map67_	
-	ldr r1,rommask
-	and r0,r1,r0,lsl#13
-	ldr r1,rombase
-	add r0,r1,r0
-	sub r0,r0,#0x6000
-	str r0,memmap_tbl+12
-	b flush
-;----------------------------------------------------------------------------
-map89_	;rom paging.. r0=page# ROM分页
-;----------------------------------------------------------------------------
-	ldr r1,rombase			 ;rom开始地址
-	sub r1,r1,#0x8000
-	ldr r2,rommask
-	and r0,r2,r0,lsl#13
-	add r0,r1,r0
-	str r0,memmap_tbl+16
-	b flush
-;----------------------------------------------------------------------------
-mapAB_
-;----------------------------------------------------------------------------
-	ldr r1,rombase
-	sub r1,r1,#0xa000
-	ldr r2,rommask
-	and r0,r2,r0,lsl#13
-	add r0,r1,r0
-	str r0,memmap_tbl+20
-	b flush
-;----------------------------------------------------------------------------
-mapCD_
-;----------------------------------------------------------------------------
-	ldr r1,rombase
-	sub r1,r1,#0xc000
-	ldr r2,rommask
-	and r0,r2,r0,lsl#13
-	add r0,r1,r0
-	str r0,memmap_tbl+24
-	b flush
-;----------------------------------------------------------------------------
-mapEF_
-;----------------------------------------------------------------------------
-	ldr r1,rombase
-	sub r1,r1,#0xe000
-	ldr r2,rommask
-	and r0,r2,r0,lsl#13
-	add r0,r1,r0
-	str r0,memmap_tbl+28
-	b flush
-;----------------------------------------------------------------------------
-map89AB_
-;----------------------------------------------------------------------------
-	ldr r1,rombase		   ;rom基地址（不包括头）
-	sub r1,r1,#0x8000
-	ldr r2,rommask
-	and r0,r2,r0,lsl#14
-	add r0,r1,r0
-	str r0,memmap_tbl+16
-	str r0,memmap_tbl+20
-flush		;update m6502_pc & lastbank
-	ldr r1,lastbank
-	sub r9,r9,r1
-	and r1,r9,#0xE000	   ;//r9和0xe000按位与运算
-	adr r2,memmap_tbl		   ;//把存储器映象地址加载到r2
-	lsr r1,r1,#11				;//>>11位	  r1/2048
-	ldr r0,[r2,r1]				;//读取r2地址+r1偏移的数据到r0
-
-	str r0,lastbank				;//保存6502PC从 ROM的最后偏移量 
-	add r9,r9,r0	;//m6502_pc+r0
-	orr lr,#0x01		;lr最低位置1防止进入arm状态
-	bx lr
-
-;----------------------------------------------------------------------------
-mapCDEF_
-;----------------------------------------------------------------------------
-	ldr r1,rombase
-	sub r1,r1,#0xc000
-	ldr r2,rommask
-	and r0,r2,r0,lsl#14
-	add r0,r1,r0
-	str r0,memmap_tbl+24
-	str r0,memmap_tbl+28
-	b flush
-;----------------------------------------------------------------------------
-map89ABCDEF_           ;mapper9
-;----------------------------------------------------------------------------
-	ldr r10,=cpu_data	;读取地址
-	mov r9,#0		;(消除任何encodePC的映射器*初始化过程中的错误)
-	str r9,lastbank		;6502PC从 ROM的最后偏移量写0
-	
-	ldr r1,rombase
-	sub r1,r1,#0x8000
-	ldr r2,rommask
-	and r0,r2,r0,lsl#15
-	add r0,r1,r0
-	str r0,memmap_tbl+16
-	str r0,memmap_tbl+20
-	str r0,memmap_tbl+24
-	str r0,memmap_tbl+28
-	b flush
-	
-;*************************************************************************************
-     IMPORT asm_Mapper_Write;
-Mapper_W	
-;-------------------------------------------
-	stmfd sp!,{r3,lr}	;LR 寄存器放栈
-	mov r1,r12
-	bl asm_Mapper_Write
-	ldmfd sp!,{r3,lr}
-	orr lr,#0x01		;lr最低位置1防止进入arm状态
-	bx lr
-	nop
-;---------------------------------------------------------------------------------------
-
 ;*****************************************************************************************************
 
 	AREA cpu_run, CODE, READONLY
@@ -1908,7 +1181,7 @@ CPU_reset PROC	;called by loadcart (r0-r9 are free to use)
 	str r0,m6502_s		;S=0xFD (0x100-3)	  把一个寄存器按字存储到存储器中
 ;-------------------------------------------------------	
 	mov r0,#0
-	str r0,cpunmif  ;清除cpu中断标志
+	str r0,cpunmif;清除cpu中断标志
 	str r0,cpuirqf  ;清除cpu中断标志
 ;------------------------------------------	
 	mov cycles,#0		;D=0, C=0, V=0, I=1 disable IRQ.
@@ -2083,7 +1356,7 @@ io_write_tbl
 	DCD apu_4015w;void;_4015w		 ; 声音通道切换 
 
 	DCD joy0_W	;$4016: Joypad 0 write;joypad_write_ptr
-	DCD apu_4017w;void;$4017: ?
+	DCD void;joy1_W;$4017: ?
 		
 ;-------------------------------------------------------------------------------
     IMPORT asm_Mapper_ReadLow
@@ -2130,16 +1403,7 @@ apu_4015w
 	ldmfd sp!,{r3,lr}
 	orr lr,#0x01		;lr最低位置1防止进入arm状态
 	bx lr
-;-----------------------------------------------------------------------------------
-	IMPORT Apu_Write4017  ;apu.c
-apu_4017w
-;-------------------------------------------------------------------------
-	stmfd sp!,{r3,lr}	;LR 寄存器放栈      
-	bl Apu_Write4017
-	
-	ldmfd sp!,{r3,lr}
-	orr lr,#0x01		;lr最低位置1防止进入arm状态
-	bx lr
+
 ;----------------------------------------------------------------------------
     IMPORT Apu_Read4015  ;apu.c
 apu_4015R	;4015
@@ -2159,26 +1423,26 @@ dma_W	;(4014)		sprite DMA transfer	精灵DMA传输	DMA访问精灵RAM：
 	stmfd sp!,{r3,lr}
 
 	and r1,r0,#0xe0
-	adr r2,memmap_tbl  ;CPU_RAM	
-	lsr r1,r1,#3       ;>>3
+	adr r2,memmap_tbl
+	lsr r1,r1,#3
 	ldr r2,[r2,r1]
 	and r0,r0,#0xff
 	add r2,r2,r0,lsl#8	;addy  r2=DMA source 源
 	ldr r1,=spr_ram		;r1     DMA的 目的地	   ppu.c
 		ldr r1,[r1]         ;spr_ram用了指针
 		
-	mov r0,#64			;256/4
+	mov r0,#64			;256/4/8
 copy_
 	subs r0,r0,#1		  ;-1
 	ldr r3,[r2,r0,lsl#2]
 	str r3,[r1,r0,lsl#2]  ;<<2	   *4
-	bne copy_              ;r0!=0
+	bne copy_
 
 	ldmfd sp!,{r3,lr}
 	orr lr,#0x01		;lr最低位置1防止进入arm状态
     bx lr
 ;----------------------------------------------------------------------------
-    IMPORT PADdata0
+    IMPORT PADdata
 	IMPORT PADdata1	
 joy0_W		;4016  手柄1键值 [7:0]右7 左6 下5 上4 Start3 Select2 B1 A0   )
 ;----------------------------------------------------------------------------
@@ -2186,7 +1450,7 @@ joy0_W		;4016  手柄1键值 [7:0]右7 左6 下5 上4 Start3 Select2 B1 A0   )
 	orr lr,#0x01		;lr最低位置1防止进入arm状态
 	bxne lr            ;NE       不等（NotEqual）  
 	
-	ldr r1,=PADdata0;   //手柄1键值  
+	ldr r1,=PADdata;   //手柄1键值  
     ldr r1,[r1]
 	str r1,joy0data
 	          	
@@ -2195,7 +1459,16 @@ joy0_W		;4016  手柄1键值 [7:0]右7 左6 下5 上4 Start3 Select2 B1 A0   )
 	str r1,joy1data							
 				
 	bx lr
+;-----------------------------------------------------------------------------   
+joy1_W		;4017  手柄1键值 [7:0]右7 左6 下5 上4 Start3 Select2 B1 A0   )
 ;----------------------------------------------------------------------------
+	;tst r0,#1          ; 0＝??，1＝读
+	;orr lr,#0x01		;lr最低位置1防止进入arm状态
+	;bxne lr  ;NE       不等（NotEqual）  	
+	         
+	bx lr		
+;----------------------------------------------------------------------------
+
 joy0_R		;4016
 ;----------------------------------------------------------------------------	
 	ldr r0,joy0data	   ;串行数据  当前读取位;joy0data是键值
@@ -2215,7 +1488,7 @@ joy1_R		;4017
 	str r1,joy1data
 	
 	and r0,r0,#1      ;&1	
-	orr r0,r0,#0x40   
+	orr r0,r0,#0x40   ;|0x80？  0xf8?
 	
     orr lr,#0x01		;lr最低位置1防止进入arm状态
 	bx lr
@@ -2235,7 +1508,7 @@ K6502_Read	PROC;apu  Rendering DPCM channel #5		r0=APU->ApuC5Address不确定正确*
     ldmfd sp!,{lr}
 	bx lr
 	ENDP
-;	nop
+	nop
 ;------------------------------------------------------------------------
 	 AREA CPU_GPU, CODE, READONLY
 	  
@@ -2282,8 +1555,8 @@ op_table	   ;DCD 用于分配一段字内存单元 op_table内存块起始地址标号
 ;---------------------------------------------------------------------------------				
 	AREA wram_globals0, DATA, READWRITE
 ;---------------------------------------------------------------------------------		
-cpu_data        ;43*4
-	DCD op_table        ;opz #   4      //代码表地址	
+cpu_data  
+	DCD 0         ;opz #   4      //代码表地址	
   ;readmem_tbl													
 	DCD ram_R	;$0000				
 	DCD PPU_R	;$2000
@@ -2304,8 +1577,8 @@ cpu_data        ;43*4
 	DCD void	;$E000
 CPU_RAM   ;memmap_tbl		存储器映象
 	DCD NES_RAM		;$0000   0000-7fff	 keep $400 byte aligned for 6502 stack shit
-	DCD NES_RAM		;$2000    should应该	  保持1024字节对齐
-	DCD NES_RAM		;$4000     never从来没有
+	DCD NES_RAM		;$2000    should	  保持1024字节对齐
+	DCD NES_RAM		;$4000     never
 	DCD NES_SRAM;   NES_RAM-0x5800	;$6000      change改变
 rommap	% 4*4			;$8000-FFFF	 memmap_tbl+16
 
@@ -2314,7 +1587,7 @@ cpustate
 	% 7*4 ;cpuregs (nz,c,a,x,y,cycles,pc)
 	DCD 0 ;m6502_s:
 	DCD 0 ;lastbank: 最后MEMMAP添加到PC （用于计算当前的PC ）
-	DCD exit_run ;nexttimeout:  jump here when cycles runs out	跳到下一个时钟周期运行
+	DCD 0 ;nexttimeout:  jump here when cycles runs out	跳到下一个时钟周期运行
    
     DCD 0   ;rombase # 4			;//ROM开始地址
     DCD 0   ;romnumber # 4		 ;// 
@@ -2333,343 +1606,5 @@ cpuirq
 ;	ALIGN           ;通过用零或空指令NOP填充，来使当前位置与一个指定的边界对齐
 	END
 ;align 4
-;***************************************************************************************************
-;***************************************************************************************************
 
-	;INCLUDE equates.h
-
-	;IMPORT void  ;6502s
-	;IMPORT spr_ram		 ;ppu.c
-	
-	;EXPORT nes_palette	   ;NES $3F00-$3F1F   NES调色板
-	;EXPORT PPU_scanline
-
-	;EXPORT nes_nt0
-	;EXPORT nes_nt1
-	;EXPORT nes_nt2
-	;EXPORT nes_nt3
-
-	;EXPORT PPU_BG_HScrlOrg
-	;EXPORT PPU_BG_VScrlOrg
-	;EXPORT PPU_Latch_Flag  ; 背景位移￥2005写入标志
-	;EXPORT PPU_R0;
-	;EXPORT PPU_R1;
-	;EXPORT PPU_R2;
-	;EXPORT PPU_R5;
-	;EXPORT PPU_addrcnt
-    ;EXPORT PPU_readtemp; 		//读取操作缓冲
-	;EXPORT spr_addrcnt  		;spraddrcnt  sprite 地址计数器	  u8
-
-	;EXPORT PPU_R;			   读PPU寄存器
-	;EXPORT PPU_W
-
-	
-
- ;AREA ppu_code, CODE, READONLY
-	;PRESERVE8
-
-;addy        RN  r12 ;
-
-;;----------------------------------------------------------------------------
-;PPU_R;			   读PPU寄存器
-;;----------------------------------------------------------------------------
-	;and r0,addy,#7
-;;	ldr pc,[pc,r0,lsl#2]  ;//加3行
-
-;;	ldr r1,=PPU_read_tbl   
-;;	add r1,r1,r0,lsl#2			  ;<<2			
-;;	ldr pc,[r1]			   ;//直接操作pc太他妈危险了
-;;	nop
-
-	;tbh     [pc,r0,lsl #1]
-;PPU_read_tbl
-	;DCI (empty_PPU_R-PPU_read_tbl)/2	;$2000
-	;DCI (empty_PPU_R-PPU_read_tbl)/2	;$2001
-	;DCI (stat_R-PPU_read_tbl)/2		;$2002
-	;DCI (empty_PPU_R-PPU_read_tbl)/2	;$2003
-	;DCI (empty_PPU_R-PPU_read_tbl)/2	;$2004
-	;DCI (empty_PPU_R-PPU_read_tbl)/2	;$2005
-	;DCI (empty_PPU_R-PPU_read_tbl)/2	;$2006
-	;DCI (vmdata_R-PPU_read_tbl)/2	;$2007
-
-
-;;PPU_read_tbl
-;;	DCD empty_PPU_R	;$2000
-;;	DCD empty_PPU_R	;$2001
-;;	DCD stat_R		;$2002
-;;	DCD empty_PPU_R	;$2003
-;;	DCD empty_PPU_R	;$2004
-;;	DCD empty_PPU_R	;$2005
-;;	DCD empty_PPU_R	;$2006
-;;	DCD vmdata_R	;$2007
-;;----------------------------------------------------------------------------
-;PPU_W;
-;;----------------------------------------------------------------------------
-	;and r1,addy,#7
-;;	ldr pc,[pc,r2,lsl#2]  ;//改过，加3行
-
-	;ldr r2,=PPU_write_tbl   
-	;add r2,r2,r1,lsl#2			  ;<<2			
-	;ldr pc,[r2]
-	;nop
-			
-;PPU_write_tbl
-	;DCD ctrl0_W		;$2000
-	;DCD ctrl1_W		;$2001
-	;DCD void		;$2002
-	;DCD ppu2003_W	;$2003
-	;DCD ppu2004_W	;$2004	
-	;DCD bgscroll_W	;$2005
-	;DCD vmaddr_W	;$2006
-	;DCD vmdata_W	;$2007
-
-;;----------------------------------------------------------------------------
-;empty_PPU_R
-;;----------------------------------------------------------------------------
-	;mov r0,#0
-	;orr lr,#0x01		;lr最低位置1防止进入arm状态
-	;bx lr
-
-;;----------------------------------------------------------------------------
-;stat_R		;(2002)		  读PPU寄存器
-;;----------------------------------------------------------------------------
-	;mov r0,#0
-	;strb r0,toggle		 ;PPU_Latch_Flag = 0;		  //背景位移￥2005写入标志
-	;ldrb r0,ppur2	   ;temp = PPU_R2	   	 
-	;and r2,r0,#0x7f		 ;PPU_R2 &= 0x7f;
-	;strb r2,ppur2
-	
-	;ldr r1,scanline		; 扫描线   if ((PPU_scanline > 20 && PPU_scanline < 262) && !(PPU_R0 & 0x80))					 
-	;cmp r1,#20			;比较  If R1>20 Then （T代表Then，E代表Else）
-	;bhi r_2002
-	
-	;orr lr,#0x01		;lr最低位置1防止进入arm状态
-	;bx lr
-;r_2002
-	;ldrb r1,ppur0		;!(PPU_R0 & 0x80))
-	;tst r1,#0x80
-	;ldrb r1,ppur0
-	;andeq r1,r1,#0xfc		;	!PPU_R0 &= 0xfc;											
-	;strb r1,ppur0		 ; ppu寄存器
-
-	;orr lr,#0x01		;lr最低位置1防止进入arm状态
-	;bx lr
-;;-------------------------------------------------------------------------------------------
-;;----------------------------------------------------------------------------
-;vmdata_R	;(2007)	  ppu_R		  ////读PPU存储器	  要读ppu存储器的值r0返回
-;;----------------------------------------------------------------------------	   													
-	;ldr r0,addrcnt		; //保存缓冲值，作为返回值
-	;cmp r0,#0x3f00		;if(PPU_addrcnt >= 0x3F00)
-	;bhs palread			;r0>=0x3f00就跳到palread
-	
-	;and r1,r0,#0x3c00
-	;adr r2,vram_map		  ;vram_map是8个地址	
-	;lsr r1,r1,#8
-	;ldr r1,[r2,r1]
-	;bic r0,r0,#0xfc00	   ;and 0x03ff
-	;ldrb r1,[r1,r0]
-	;ldrb r0,readtemp
-	;strb r1,readtemp
-		
-;inc1_32					  ;根据$2002 [bit2] 0：+1  1： +32。	
-	;ldr r1,addrcnt
-	;ldrb r2,addrcntint
-	;add	r1,r1,r2		  ;PPU_R0 & 0x04 ? PPU_addrcnt += 32 : PPU_addrcnt++ ;
-	;str r1,addrcnt
-	;orr lr,#0x01		;lr最低位置1防止进入arm状态
-	;bx lr
-
-;palread					 ;//PPU 读取缓冲不适用 palette 调色板,直接返回
-	;and r0,r0,#0x1f
-	;adr r1,ppu_palette	 ;读取地址
-	;ldrb r0,[r1,r2]
-	;b inc1_32
-
-	;nop
-;;===================================================================================================
-;;----------------------------------------------------------------------------
-;ctrl0_W		;(2000)	 //$2000  r0=u8 value
-;;----------------------------------------------------------------------------
-	;strb r0,ppur0	   	   ;PPU_R0 = value;
-
-	;mov r2,#1			 ;+1/+32 ?  ;根据PPU_R0$2002 [bit2] 0：+1  1： +32。
-	;tst r0,#4			;测试（执行按位与操作，并且根据结果更新Z 
-	;movne r2,#32		;z=0则r2=32
-	;strb r2,addrcntint
-
-	;orr lr,#0x01		;lr最低位置1防止进入arm状态
-	;bx lr		
-;;----------------------------------------------------------------------------
-;ctrl1_W		;(2001)
-;;----------------------------------------------------------------------------
-	;strb r0,ppur1	   	   ;PPU_R1 = value
-	;orr lr,#0x01		;lr最低位置1防止进入arm状态
-	;bx lr
-;;--------------------------------------------------------------------------------							  	 
-;ppu2003_W	;$2003
-;;--------------------------------------------------------------------------------------
-	;strb r0,spraddrcnt		 ;spr_addrcnt = value;
-	;orr lr,#0x01		;lr最低位置1防止进入arm状态
-	;bx lr
-;;-----------------------------------------------------------------------------
-;ppu2004_W	;$2004	
-;;-----------------------------------------------------------------------------------
-	;ldr r1,=spr_ram	  ;spr_ram[spr_addrcnt++] = value;
-	;ldrb r2,spraddrcnt
-	;add r2,r2,#1
-	;strb r0,[r1,r2]				
-	;orr lr,#0x01		;lr最低位置1防止进入arm状态
-	;bx lr
-;;----------------------------------------------------------------------------------------
-;bgscroll_W	;$2005
-;;---------------------------------------------------------------------------------------	   	
-	;ldrb r1,toggle		;	 if(PPU_Latch_Flag)
-	;eors r1,r1,#1		   ;eor Rd, Rn   ; Rd ^= Rn  按位）异或	 异或 按位比较相同为0不同位1
-	;strb r1,toggle
-	;beq bgscrollY
-	;strb r0,bg_hscrlorg	   ;水平scroll数据 else PPU_BG_HScrlOrg = value;//假0：
-
-	;orr lr,#0x01		
-	;bx lr
-;bgscrollY				;  if(PPU_Latch_Flag) PPU_BG_VScrlOrg	= (value > 239) ? 0 : value;//真1：  	
-	;cmp r0,#239			;比较  If r0>239 Then （T代表Then，E代表Else）
-    ;movhi r0,#0
-    ;strb r0,bg_vscrlorg	 ;垂直scroll数据
-    ;orr lr,#0x01		
-	;bx lr
-;;----------------------------------------------------------------------------
-;vmaddr_W	;(2006)
-;;----------------------------------------------------------------------------
-	;ldrb r1,toggle
-	;eor r1,#1	  ;PPU_Latch_Flag ^= 1;		
-	;strb r1,toggle		    
-				    ;;PPU_addrcnt = (PPU_addrcnt << 8) + value; //PPU 存储器地址计数器，先写高8位，后写低8位
-	;ldrb r1,addrcnt		
-	;add r2,r0,r1,lsl #8	   ;<<8
-	;str r2,addrcnt	
-
-	;orr lr,#0x01		
-	;bx lr
-	;nop
-;;----------------------------------------------------------------------------
-;vmdata_W	;(2007)				 	PPU_MemWrite(value);
-;;----------------------------------------------------------------------------
-	;ldr r1,addrcnt
-;;	bic r1,r1,#0xfc000 ;AND $3fff
-	;and r1,r1,#0x3c00
-	;ldr r2,=ppu_vram_write		  ;vram_write是8个地址	
-
-	;add r1,r2,r1,lsr#8			  ;>>8			
-	;ldr pc,[r1]	
-	;nop	
-
-;;----------------------------------------------------------------------------
-;VRAM_name0	;(2000-23ff)		  //PPU name table 数据	
-;;----------------------------------------------------------------------------
-	;ldr r1,addrcnt			;name_table[0][PPU_addrcnt & 0xFFF] = value;	//nametable0
-;;	and r1,#0x0fff
-    ;bic r1,r1,#0xf000
-	;ldr r2,nes_nt00		;name_table[0]==nes_nt0
-	;strb r0,[r2,r1]
-	;b inc1_32	
-;;----------------------------------------------------------------------------
-;VRAM_name1	;(2400-27ff)
-;;----------------------------------------------------------------------------
-				 ;;name_table[1][addrtemp - 0x400] = value;		//nametable1
-	;ldr r1,addrcnt
-	;bic r1,r1,#0xf000
-	;sub r1,r1,#0x400
-	;ldr r2,nes_nt11
-	;strb r0,[r2,r1]
-	;b inc1_32
-;;----------------------------------------------------------------------------
-;VRAM_name2	;(2800-2bff)
-;;---------------------------------------------------------------------------
-				;;name_table[2][addrtemp - 0x800] = value;
-	;ldr r1,addrcnt
-	;bic r1,r1,#0xf000
-	;sub r1,r1,#0x800
-	;ldr r2,nes_nt22
-	;strb r0,[r2,r1]	
-	;b inc1_32
-;;----------------------------------------------------------------------------
-;VRAM_name3	;(2c00-2fff)
-;;----------------------------------------------------------------------------
-			   ;;name_table[3][addrtemp - 0xC00] = value;
-	;ldr r1,addrcnt
-	;bic r1,r1,#0xf000
-	;sub r1,r1,#0xc00
-	;ldr r2,nes_nt33
-	;strb r0,[r2,r1]	
-	;b inc1_32
-;;----------------------------------------------------------------------------
-;VRAM_pal	;write to VRAM palette area ($3F00-$3F1F)写入VRAM调色板区
-;;----------------------------------------------------------------------------	
-	;ldr addy,addrcnt	;	 r12
-;;	cmp addy,#0x3f00	;$3000 ~ $3EFF	-- $2000 ~ $2EFF的镜像
-;;	bmi VRAM_name3
-
-;;	and r0,r0,#0x3f		;(只有颜色0-63都有效)
-	;and addy,addy,#0x1f		 ; $3F00-$3F1F
-		;tst addy,#0x0f
-		;moveq addy,#0	;$10 mirror to $00	镜子 对应位置为透明色的景象
-	;adr r1,ppu_palette
-	;strb r0,[r1,addy]	;store in nes palette  存储在NES调色板
-	;b inc1_32
-
-;;	nop
-;;------------------------------------------------------------------------------------------
-;ppu_vram_write
-	;% 8*4
-	;DCD VRAM_name0	;$2000		  |  $2000   |  $23BF   | Name 表 #0                |（960 字节）
-	;DCD VRAM_name1	;$2400
-	;DCD VRAM_name2	;$2800
-	;DCD VRAM_name3	;$2c00		   $2C00   |  $2FBF   | Name 表 #3                |（960 字节）
-	;DCD VRAM_name0	;$3000
-	;DCD VRAM_name1	;$3400
-	;DCD VRAM_name2	;$3800
-	;DCD VRAM_pal	;$3c00
-
-;;*******************************************************************************************
-;;-------------------------------------------------------------------------------------
-	;AREA wram_globals1, DATA, READWRITE
-;;-----------------------------------------------------------------------------------------
-;ppu_vram_map	;for vmdata_R	vram_map   
-	;DCD 0		;图像ROM的8k数据开始地址
-	;DCD 0		;图像ROM的8k数据开始地址+1024 
-	;DCD 0		;图像ROM的8k数据开始地址+2048
-	;DCD 0		;						+3072
-	;DCD 0		;						+4096
-	;DCD 0	   ;
-	;DCD 0		;
-	;DCD 0		;图像ROM的8k数据开始地址+7168
-;nes_nt0 DCD 0 ;NES_VRAM+0x2000 ;$2000	  显示缓冲区0(VRAM)，与显示屏幕对应的内存区
-;nes_nt1 DCD 0 ;NES_VRAM+0x2000 ;$2400	  显示缓冲区1	 name_table[1]
-;nes_nt2 DCD 0 ;NES_VRAM+0x2400 ;$2800	  显示缓冲区2	 name_table[2]
-;nes_nt3 DCD 0 ;NES_VRAM+0x2400 ;$2c00	  显示缓冲区3	 name_table[3]
-
-			    ;DCD 0 ;vrombase
-				;DCD 0 ;vrommask
-;PPU_scanline    DCD 0	; scanline	
-;PPU_addrcnt	    DCD 0;DCW 0	; addrcnt	u16	
- 				;DCD 1		; addrcntint  u8
-
-;PPU_BG_HScrlOrg	DCD 0;DCB 0  ;bg_hscrlorg
-;PPU_BG_VScrlOrg	DCD 0;DCB 0  ;bg_vscrlorg
-;PPU_Latch_Flag	DCD 0;DCB 0   ;toggle			   背景位移￥2005写入标志	 
-;PPU_readtemp 	DCD 0;DCB 0	;readtemp         //读取操作缓冲
-;PPU_R0			DCD 0;DCB 0	;ppur0	
-;PPU_R1			DCD 0;DCB 0	
-;PPU_R2			DCD 0;DCB 0	
-;PPU_R5			DCD 0;DCB 0
-;spr_addrcnt  	DCD 0;DCB 0	;spraddrcnt  sprite 地址计数器 
-			
-;;				DCB 0	 ;保持4字节对齐
-;;				% 1
-
-;nes_palette	   % 32	;NES $3F00-$3F1F   NES调色板
-
-;;------------------------------------------------------------------------
-
- ;END
 

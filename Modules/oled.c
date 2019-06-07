@@ -45,8 +45,28 @@ void LCD_WR_DATA8(char da) //发送数据-8位参数
   //HAL_SPI_Transmit(&hspi1, (uint8_t*)&buff[1], 1, 0xFFFF);
 	OLED_CS_Set();
 }	  
+
+uint8_t lcdDataFalg = 0;
+  void LCD_WR_DATAS(int* da, int len)
+{	
+  OLED_CS_Clr();
+  OLED_DC_Set();
+  hspi1.Instance->CR1 |= (0x1<<11);
+  hspi1.Init.DataSize = SPI_DATASIZE_16BIT;
+  #if 1
+  while(lcdDataFalg);
+  HAL_SPI_Transmit_DMA(&hspi1, (uint8_t*)da, len);
+  lcdDataFalg = 1;
+  #else
+  HAL_SPI_Transmit(&hspi1, (uint8_t*)da, len, 0xFFFF);
+  hspi1.Instance->CR1 &= ~(0x1<<11);
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  OLED_CS_Set();
+  #endif
+}	
 void LCD_WR_REG(char da)	 
 {		
+  while(lcdDataFalg);
   OLED_CS_Clr();
   OLED_DC_Clr();
 	//LCD_Writ_Bus(da);
@@ -76,6 +96,17 @@ void Address_set(unsigned int x1,unsigned int y1,unsigned int x2,unsigned int y2
    LCD_WR_REG(0x2C);					 						 
 }
 
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+  if(hspi == &hspi1)
+  {
+    hspi1.Instance->CR1 &= ~(0x1<<11);
+    hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+    OLED_CS_Set();
+    lcdDataFalg = 0;
+  }
+}
+
 void Lcd_Init(void)
 {
   /*
@@ -96,14 +127,14 @@ void Lcd_Init(void)
  	GPIO_SetBits(GPIOB,GPIO_Pin_0|GPIO_Pin_1|GPIO_Pin_8);	*/
   
 	OLED_RST_Clr();
-	HAL_Delay(20);
+	HAL_Delay(120);
 	OLED_RST_Set();
-	HAL_Delay(20);
+	HAL_Delay(120);
 	OLED_BLK_Set();
 	
 //************* Start Initial Sequence **********// 
 LCD_WR_REG(0x36); 
-LCD_WR_DATA8(0x00);
+LCD_WR_DATA8(0x74);
 
 LCD_WR_REG(0x3A); 
 LCD_WR_DATA8(0x05);

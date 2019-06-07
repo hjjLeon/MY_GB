@@ -5,7 +5,7 @@
 #include "fatfs.h"
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序移植自网友ye781205的NES模拟器工程
-//ALIENTEK STM32开发板
+//ALIENTEK STM32F407开发板
 //NES主函数 代码	   
 //正点原子@ALIENTEK
 //技术论坛:www.openedv.com
@@ -25,15 +25,6 @@
 #define uint32 	unsigned int
 #define boolean uint8 
 
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef int8_t i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef volatile uint8_t vu8;
-typedef volatile uint16_t vu16;
-typedef volatile uint32_t vu32;
 
 
 //nes信息头结构体
@@ -47,7 +38,8 @@ typedef struct
 	unsigned char flags_2;
 	unsigned char reserved[8];
 }NES_header;   
- 
+
+extern u8 nes_frame_cnt;		//nes帧计数器
 extern int MapperNo;			//map编号
 extern int NES_scanline;		//扫描线
 extern NES_header *RomHeader;	//rom文件头 
@@ -77,9 +69,7 @@ void debug_6502(u16 reg0,u8 reg1);
 void nes_i2s_dma_tx_callback(void);
 int nes_sound_open(int samples_per_sync,int sample_rate);
 void nes_sound_close(void);
-void nes_apu_fill_buffer(int samples,u8* wavebuf); 
-
-extern u32 get_crc32(u8* buf, u32 len);
+void nes_apu_fill_buffer(int samples,u16* wavebuf); 
 #endif
 
 
