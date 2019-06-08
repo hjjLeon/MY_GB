@@ -104,7 +104,7 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  //SCB->VTOR = FLASH_BASE | 0xC000;
+  SCB->VTOR = FLASH_BASE | 0xC000;
   uint8_t res;
   /* USER CODE END 1 */
 
@@ -136,7 +136,6 @@ int main(void)
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
   Lcd_Init();			//初始化OLED  
 	LCD_Clear(BLACK);
   if(f_mount(&SDFatFS, (TCHAR const*)SDPath, 0) != FR_OK)
@@ -152,11 +151,12 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    HAL_Delay(500);
+    HAL_Delay(200);
     LCD_Clear(RED);
-    HAL_Delay(500);
+    HAL_Delay(200);
     LCD_Clear(GREEN);
-    HAL_Delay(500);
+    HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
+    HAL_Delay(200);
     LCD_Clear(BLUE);
     
 		res = nes_load("0:/my.nes");	//开始nes游戏

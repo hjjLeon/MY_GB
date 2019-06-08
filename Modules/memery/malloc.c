@@ -13,7 +13,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 //内存池(4字节对齐)
-__align(4) u8 mem1base[MEM1_MAX_SIZE] __attribute__((at(0X20000D00)));//内部SRAM1内存池
+__align(4) u8 mem1base[MEM1_MAX_SIZE] __attribute__((at(0X20001D00)));//内部SRAM1内存池
 __align(4) u8 mem2base[MEM2_MAX_SIZE] __attribute__((at(0X10000000)));//内部SRAM2内存池
 //内存管理表
 u16 mem1mapbase[MEM1_ALLOC_TABLE_SIZE];//内部SRAM1内存池MAP

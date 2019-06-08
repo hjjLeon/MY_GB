@@ -15,12 +15,12 @@ typedef int32_t i32;
 #define NULL 0
 #endif
 
-#define SRAMIN1	 0	//内部内存池1
-#define SRAMIN2  1	//内部内存池2
+#define SRAMIN1	 1	//内部内存池1
+#define SRAMIN2  0	//内部内存池2
 
 //mem1内存参数设定.mem1完全处于内部SRAM1里面
 #define MEM1_BLOCK_SIZE			32  	  						//内存块大小为32字节
-#define MEM1_MAX_SIZE			80*1024  						//最大管理内存 116K
+#define MEM1_MAX_SIZE			1*1024  						//最大管理内存 116K
 #define MEM1_ALLOC_TABLE_SIZE	MEM1_MAX_SIZE/MEM1_BLOCK_SIZE 	//内存表大小
 
 //mem2内存参数设定.mem2的内存池处于内部SRAM2里面
