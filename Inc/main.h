@@ -103,8 +103,6 @@ void Error_Handler(void);
 #define PM_CHRG_GPIO_Port GPIOC
 #define KEY_SELECT_Pin GPIO_PIN_3
 #define KEY_SELECT_GPIO_Port GPIOC
-#define KEY_START_Pin GPIO_PIN_1
-#define KEY_START_GPIO_Port GPIOA
 #define DEBUG_TXD_Pin GPIO_PIN_2
 #define DEBUG_TXD_GPIO_Port GPIOA
 #define DEBUG_TXDA3_Pin GPIO_PIN_3
@@ -145,6 +143,8 @@ void Error_Handler(void);
 #define LCD_RST_GPIO_Port GPIOB
 #define LCD_DC_Pin GPIO_PIN_8
 #define LCD_DC_GPIO_Port GPIOB
+#define KEY_START_Pin GPIO_PIN_9
+#define KEY_START_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

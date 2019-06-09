@@ -104,7 +104,7 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  SCB->VTOR = FLASH_BASE | 0xC000;
+  //SCB->VTOR = FLASH_BASE | 0xC000;
   uint8_t res;
   /* USER CODE END 1 */
 
@@ -127,13 +127,13 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
+  MX_USB_DEVICE_Init();
   MX_USART2_UART_Init();
   MX_DAC_Init();
   MX_ADC1_Init();
   MX_SDIO_SD_Init();
   MX_SPI1_Init();
   MX_FATFS_Init();
-  MX_USB_DEVICE_Init();
   /* USER CODE BEGIN 2 */
 
   Lcd_Init();			//≥ı ºªØOLED  
