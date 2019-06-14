@@ -1181,9 +1181,16 @@ void apu_init(void)
 	apu->filter_type=APU_FILTER_LOWPASS;	//设置筛选器类型 
 }
 //apu声音输出
+
+uint16_t apu_count = 0;
+
 void apu_soundoutput(void)          
 {	 
 	u16 i;
+  /*while(apu_count < 367)
+  {
+    HAL_Delay(2);
+  }*/
 	apu_process(wave_buffers,APU_PCMBUF_SIZE);
 	for(i=0;i<30;i++)if(wave_buffers[i]!=wave_buffers[i+1])break;//判断前30个数据,是不是都相等?
 	if(i==30&&wave_buffers[i])//都相等,且不等于0
@@ -1191,7 +1198,8 @@ void apu_soundoutput(void)
 		for(i=0;i<APU_PCMBUF_SIZE;i++)wave_buffers[i]=0;//是暂停状态输出的重复无效数据,直接修改为0.从而不输出杂音.		
 	}
 	clocks=0;
-	nes_apu_fill_buffer(0,wave_buffers);
+  apu_count = 0;
+	//nes_apu_fill_buffer(0,wave_buffers);
 }
 
 

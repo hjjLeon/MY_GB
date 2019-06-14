@@ -3,6 +3,7 @@
 #include "nes_mapper.h"
 #include "nes_apu.h"
 #include "string.h"
+#include "tim.h"
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序移植自网友ye781205的NES模拟器工程
 //ALIENTEK STM32F407开发板
@@ -385,7 +386,7 @@ void nes_emulate_frame(void)
 		}	   
 		end_vblank(); 
 		nes_get_gamepadval();//每3帧查询一次USB
-		//apu_soundoutput();//输出游戏声音	 
+		apu_soundoutput();//输出游戏声音	 
 		nes_frame_cnt++; 	
 		nes_frame++;
 		if(nes_frame>NES_SKIP_FRAME)nes_frame=0;//跳帧 
@@ -428,6 +429,7 @@ int nes_sound_open(int samples_per_sync,int sample_rate)
 	I2S2_TX_DMA_Init((u8*)i2sbuf1,(u8*)i2sbuf2,2*APU_PCMBUF_SIZE);//DMA配置 
  	i2s_tx_callback=nes_i2s_dma_tx_callback;//回调函数指wav_i2s_dma_callback
 	I2S_Play_Start();						//开启DMA    */
+  HAL_TIM_Base_Start_IT(&htim13);
 	return 1;
 }
 //NES关闭音频输出
@@ -440,11 +442,11 @@ void nes_sound_close(void)
 void nes_apu_fill_buffer(int samples,u16* wavebuf)
 {	
  	int i;	 
-	while(!nestransferend)//等待音频传输结束
+	/*while(!nestransferend)//等待音频传输结束
 	{
 		//delay_ms(5);
     HAL_Delay(5);
-	}
+	}*/
 	nestransferend=0;
     if(neswitchbuf==0)
 	{

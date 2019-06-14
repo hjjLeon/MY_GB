@@ -56,6 +56,7 @@
 #include "fatfs.h"
 #include "sdio.h"
 #include "spi.h"
+#include "tim.h"
 #include "usart.h"
 #include "usb_device.h"
 #include "gpio.h"
@@ -65,6 +66,7 @@
 #include "oled.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "dactest.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -87,6 +89,7 @@
 /* USER CODE BEGIN PV */
 static TaskHandle_t xHandleTaskSimulator = NULL;
 static TaskHandle_t xHandleTaskKeyboard = NULL;
+static TaskHandle_t xHandleTaskDacTest = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -103,7 +106,6 @@ static void vTaskSimulator(void *pvParameters)
   while(1)
   {
     vTaskDelay(200);
-    HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
     LCD_Clear(RED);
     vTaskDelay(50);
     LCD_Clear(GREEN);
@@ -120,6 +122,14 @@ static void vTaskSimulator(void *pvParameters)
 static void vTaskKeyboard(void *pvParameters)
 {
   uint16_t count = 0;
+  
+  vTaskDelay(800);
+  HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
+	OLED_BLK_Set();
+  while(HAL_GPIO_ReadPin(KEY_START_GPIO_Port, KEY_START_Pin) == GPIO_PIN_RESET)
+  {
+    vTaskDelay(10);
+  }
   while(1)
   {
     if(HAL_GPIO_ReadPin(KEY_START_GPIO_Port, KEY_START_Pin) == GPIO_PIN_RESET)
@@ -133,7 +143,8 @@ static void vTaskKeyboard(void *pvParameters)
           if(count >= 200)
           {
             HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_RESET);
-            LCD_Clear(BLACK);
+            OLED_BLK_Clr();
+            //LCD_Clear(BLACK);
             //while(1);
           }
         }
@@ -144,6 +155,25 @@ static void vTaskKeyboard(void *pvParameters)
         }
       }
     }
+    vTaskDelay(10);
+  }
+}
+
+static void vTaskDacTest(void *pvParameters)
+{
+  uint16_t dacval = 0;
+  HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
+  HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, 0);
+  HAL_DAC_Start(&hdac, DAC_CHANNEL_2);
+  HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, 0);
+  //HAL_TIM_Base_Start_IT(&htim13);
+  while(1)
+  {
+    /*if(dacval<0xFFF)
+      dacval+=1;
+    else
+      dacval = 0;
+    HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, dacval);*/
     vTaskDelay(10);
   }
 }
@@ -187,6 +217,7 @@ int main(void)
   MX_SDIO_SD_Init();
   MX_SPI1_Init();
   MX_FATFS_Init();
+  MX_TIM13_Init();
   /* USER CODE BEGIN 2 */
 
   Lcd_Init();			//初始化OLED  
@@ -214,7 +245,13 @@ int main(void)
               512/4, /* 任务栈大小，单位 word，也就是 4 字节 */
               NULL, /* 任务参数 */
               3, /* 任务优先级*/
-              &xHandleTaskSimulator ); /* 任务句柄 */
+              &xHandleTaskKeyboard ); /* 任务句柄 */
+  xTaskCreate( vTaskDacTest, /* 任务函数 */
+              "vTaskDacTest", /* 任务名 */
+              512/4, /* 任务栈大小，单位 word，也就是 4 字节 */
+              NULL, /* 任务参数 */
+              4, /* 任务优先级*/
+              &xHandleTaskDacTest ); /* 任务句柄 */
   vTaskStartScheduler();
   while (1)
   {
@@ -292,13 +329,24 @@ void SystemClock_Config(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
-
+  uint16_t buff;
+  extern uint16_t apu_count;
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM14) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
-
+  else if(htim->Instance == TIM13)
+  {
+    if( apu_count < 367)
+  	{
+  	  extern uint16_t *wave_buffers;
+  		buff = wave_buffers[apu_count];
+      HAL_DAC_SetValue(&hdac, DAC_CHANNEL_1, DAC_ALIGN_12B_R, buff);
+      HAL_DAC_SetValue(&hdac, DAC_CHANNEL_2, DAC_ALIGN_12B_R, buff);
+  		apu_count++;
+  	}
+  }
   /* USER CODE END Callback 1 */
 }
 

@@ -127,10 +127,9 @@ void Lcd_Init(void)
  	GPIO_SetBits(GPIOB,GPIO_Pin_0|GPIO_Pin_1|GPIO_Pin_8);	*/
   
 	OLED_RST_Clr();
-	HAL_Delay(120);
+	HAL_Delay(250);
 	OLED_RST_Set();
-	HAL_Delay(120);
-	OLED_BLK_Set();
+	HAL_Delay(250);
 	
 //************* Start Initial Sequence **********// 
 LCD_WR_REG(0x36); 
