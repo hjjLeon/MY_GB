@@ -63,6 +63,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "oled.h"
+#include "FreeRTOS.h"
+#include "task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -83,8 +85,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-//FRESULT f_res;                    /* 文件操作结果 */
-//FATFS fs;													/* FatFs文件系统对象 */
+static TaskHandle_t xHandleTaskSimulator = NULL;
+static TaskHandle_t xHandleTaskKeyboard = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -95,6 +97,57 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static void vTaskSimulator(void *pvParameters)
+{
+  uint8_t res;
+  while(1)
+  {
+    vTaskDelay(200);
+    HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
+    LCD_Clear(RED);
+    vTaskDelay(50);
+    LCD_Clear(GREEN);
+    vTaskDelay(50);
+    LCD_Clear(BLUE);
+    vTaskDelay(50);
+    
+		res = nes_load("0:/my.nes");	//开始nes游戏
+    printf("error %d\r\n", res);
+    vTaskDelay(100);
+  }
+}
+
+static void vTaskKeyboard(void *pvParameters)
+{
+  uint16_t count = 0;
+  while(1)
+  {
+    if(HAL_GPIO_ReadPin(KEY_START_GPIO_Port, KEY_START_Pin) == GPIO_PIN_RESET)
+    {
+      while(1)
+      {
+        vTaskDelay(10);
+        if(HAL_GPIO_ReadPin(KEY_START_GPIO_Port, KEY_START_Pin) == GPIO_PIN_RESET)
+        {
+          count++;
+          if(count >= 200)
+          {
+            HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_RESET);
+            LCD_Clear(BLACK);
+            //while(1);
+          }
+        }
+        else
+        {
+          count = 0;
+          break;
+        }
+      }
+    }
+    vTaskDelay(10);
+  }
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -144,14 +197,28 @@ int main(void)
     Error_Handler();
   }
   printf("system is ready,by Application\r\n");
+  HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  xTaskCreate( vTaskSimulator, /* 任务函数 */
+              "vTaskSimulator", /* 任务名 */
+              1*1024/4, /* 任务栈大小，单位 word，也就是 4 字节 */
+              NULL, /* 任务参数 */
+              2, /* 任务优先级*/
+              &xHandleTaskSimulator ); /* 任务句柄 */
+  xTaskCreate( vTaskKeyboard, /* 任务函数 */
+              "vTaskKeyboard", /* 任务名 */
+              512/4, /* 任务栈大小，单位 word，也就是 4 字节 */
+              NULL, /* 任务参数 */
+              3, /* 任务优先级*/
+              &xHandleTaskSimulator ); /* 任务句柄 */
+  vTaskStartScheduler();
   while (1)
   {
-    HAL_Delay(200);
+    /*HAL_Delay(200);
     LCD_Clear(RED);
     HAL_Delay(200);
     LCD_Clear(GREEN);
@@ -160,7 +227,7 @@ int main(void)
     LCD_Clear(BLUE);
     
 		res = nes_load("0:/my.nes");	//开始nes游戏
-    printf("error %d\r\n", res);
+    printf("error %d\r\n", res);*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
