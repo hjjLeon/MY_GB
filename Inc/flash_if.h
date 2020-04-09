@@ -48,6 +48,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f4xx_hal.h"
+#include "fatfs.h"
 
 /* Exported types ------------------------------------------------------------*/
 /* Exported constants --------------------------------------------------------*/
@@ -102,6 +103,8 @@ uint32_t          FLASH_If_Erase(uint32_t StartSector);
 uint32_t          FLASH_If_Write(uint32_t FlashAddress, uint32_t* Data, uint32_t DataLength);
 uint16_t          FLASH_If_GetWriteProtectionStatus(void);
 HAL_StatusTypeDef FLASH_If_WriteProtectionConfig(uint32_t modifier);
+int8_t FLASH_IF_NES_LOAD(FIL *file, uint8_t** rom_prt, uint32_t RomSize);
+
 
 #endif  /* __FLASH_IF_H */
 

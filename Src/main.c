@@ -66,7 +66,6 @@
 #include "oled.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include "dactest.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -87,7 +86,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-static TaskHandle_t xHandleTaskSimulator = NULL;
+TaskHandle_t xHandleTaskSimulator = NULL;
 static TaskHandle_t xHandleTaskKeyboard = NULL;
 static TaskHandle_t xHandleTaskDacTest = NULL;
 /* USER CODE END PV */
@@ -123,9 +122,16 @@ static void vTaskKeyboard(void *pvParameters)
 {
   uint16_t count = 0;
   
-  vTaskDelay(800);
+  OLED_BLK_Clr();
+  vTaskDelay(2000);
   HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
 	OLED_BLK_Set();
+  xTaskCreate( vTaskSimulator, /* 任务函数 */
+              "vTaskSimulator", /* 任务名 */
+              1*1024/4, /* 任务栈大小，单位 word，也就是 4 字节 */
+              NULL, /* 任务参数 */
+              2, /* 任务优先级*/
+              &xHandleTaskSimulator ); /* 任务句柄 */
   while(HAL_GPIO_ReadPin(KEY_START_GPIO_Port, KEY_START_Pin) == GPIO_PIN_RESET)
   {
     vTaskDelay(10);
@@ -218,28 +224,22 @@ int main(void)
   MX_SPI1_Init();
   MX_FATFS_Init();
   MX_TIM13_Init();
+  FLASH_If_Init();
   /* USER CODE BEGIN 2 */
 
   Lcd_Init();			//初始化OLED  
-	LCD_Clear(BLACK);
   if(f_mount(&SDFatFS, (TCHAR const*)SDPath, 0) != FR_OK)
   {
     /* FatFs Initialization Error */
     Error_Handler();
   }
   printf("system is ready,by Application\r\n");
-  HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  xTaskCreate( vTaskSimulator, /* 任务函数 */
-              "vTaskSimulator", /* 任务名 */
-              1*1024/4, /* 任务栈大小，单位 word，也就是 4 字节 */
-              NULL, /* 任务参数 */
-              2, /* 任务优先级*/
-              &xHandleTaskSimulator ); /* 任务句柄 */
+  HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
   xTaskCreate( vTaskKeyboard, /* 任务函数 */
               "vTaskKeyboard", /* 任务名 */
               512/4, /* 任务栈大小，单位 word，也就是 4 字节 */
@@ -250,7 +250,7 @@ int main(void)
               "vTaskDacTest", /* 任务名 */
               512/4, /* 任务栈大小，单位 word，也就是 4 字节 */
               NULL, /* 任务参数 */
-              4, /* 任务优先级*/
+              3, /* 任务优先级*/
               &xHandleTaskDacTest ); /* 任务句柄 */
   vTaskStartScheduler();
   while (1)

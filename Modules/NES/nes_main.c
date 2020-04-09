@@ -4,6 +4,8 @@
 #include "nes_apu.h"
 #include "string.h"
 #include "tim.h"
+#include "FreeRTOS.h"
+#include "task.h"
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序移植自网友ye781205的NES模拟器工程
 //ALIENTEK STM32F407开发板
@@ -209,10 +211,10 @@ u8 nes_sram_malloc(u32 romsize)
 	ppu=mymalloc(SRAMIN1,sizeof(ppu_data));  
 	apu=mymalloc(SRAMIN1,sizeof(apu_t));		//sizeof(apu_t)=  12588
 	wave_buffers=mymalloc(SRAMIN1,APU_PCMBUF_SIZE*2);
-	i2sbuf1=mymalloc(SRAMIN1,APU_PCMBUF_SIZE*4+10);
-	i2sbuf2=mymalloc(SRAMIN1,APU_PCMBUF_SIZE*4+10);
- 	romfile=mymalloc(SRAMIN1,romsize);			//申请游戏rom空间,等于nes文件大小 
-	if(i==64||!NES_RAM||!NES_SRAM||!RomHeader||!NES_Mapper||!spr_ram||!ppu||!apu||!wave_buffers||!i2sbuf1||!i2sbuf2||!romfile)
+	//i2sbuf1=mymalloc(SRAMIN1,APU_PCMBUF_SIZE*4+10);
+	//i2sbuf2=mymalloc(SRAMIN1,APU_PCMBUF_SIZE*4+10);
+ 	//romfile=mymalloc(SRAMIN1,romsize);			//申请游戏rom空间,等于nes文件大小 
+	if(i==64||!NES_RAM||!NES_SRAM||!RomHeader||!NES_Mapper||!spr_ram||!ppu||!apu||!wave_buffers)
 	{
 		nes_sram_free();
 		return 1;
@@ -224,9 +226,9 @@ u8 nes_sram_malloc(u32 romsize)
 	memset(ppu,0,sizeof(ppu_data));			//清零
 	memset(apu,0,sizeof(apu_t));			//清零
 	memset(wave_buffers,0,APU_PCMBUF_SIZE*2);//清零
-	memset(i2sbuf1,0,APU_PCMBUF_SIZE*4+10);	//清零
-	memset(i2sbuf2,0,APU_PCMBUF_SIZE*4+10);	//清零
-	memset(romfile,0,romsize);				//清零 
+	//memset(i2sbuf1,0,APU_PCMBUF_SIZE*4+10);	//清零
+	//memset(i2sbuf2,0,APU_PCMBUF_SIZE*4+10);	//清零
+	//memset(romfile,0,romsize);				//清零 
 	return 0;
 } 
 //开始nes游戏
@@ -257,7 +259,13 @@ u8 nes_load(u8* pname)
 	res=nes_sram_malloc(f_size(file));			//申请内存 
 	if(res==0)
 	{
-		f_read(file,romfile,f_size(file),&br);	//读取nes文件
+		//f_read(file,romfile,f_size(file),&br);	//读取nes文件
+		extern TaskHandle_t xHandleTaskSimulator;
+    vTaskPrioritySet(xHandleTaskSimulator, 4);
+    i = FLASH_IF_NES_LOAD(file, &romfile, f_size(file));
+    vTaskPrioritySet(xHandleTaskSimulator, 2);
+		if(i)
+      while(1);
 		res=nes_load_rom();						//加载ROM
 		if(res==0) 					
 		{   
@@ -441,6 +449,7 @@ void nes_sound_close(void)
 //NES音频输出到I2S缓存
 void nes_apu_fill_buffer(int samples,u16* wavebuf)
 {	
+#if 0
  	int i;	 
 	/*while(!nestransferend)//等待音频传输结束
 	{
@@ -463,6 +472,7 @@ void nes_apu_fill_buffer(int samples,u16* wavebuf)
 			i2sbuf2[2*i+1]=wavebuf[i];
 		}
 	}
+  #endif
 } 
 
 

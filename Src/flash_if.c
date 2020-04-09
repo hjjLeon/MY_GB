@@ -49,7 +49,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "flash_if.h"
-
+#include "malloc.h"	 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
 /* Private macro -------------------------------------------------------------*/
@@ -142,6 +142,64 @@ uint32_t FLASH_If_Write(uint32_t FlashAddress, uint32_t* Data ,uint32_t DataLeng
   }
 
   return (FLASHIF_OK);
+}
+
+int8_t FLASH_IF_NES_LOAD(FIL *file, uint8_t** rom_prt, uint32_t RomSize)
+{
+  uint32_t* sdBuff;
+  UINT br;
+  FLASH_EraseInitTypeDef pEraseInit;
+  uint32_t SectorError;
+  uint32_t i,j,addr = 0x08020000,temp;
+
+  if(RomSize >= 0xE0000)
+    return -1;//rom too big
+
+  pEraseInit.TypeErase = TYPEERASE_SECTORS;
+  pEraseInit.Sector = GetSector(addr);
+  pEraseInit.NbSectors = RomSize/0x20000 + 1;
+  pEraseInit.VoltageRange = VOLTAGE_RANGE_3;
+  if (HAL_FLASHEx_Erase(&pEraseInit, &SectorError) != HAL_OK)
+  {
+     /* Error occurred while page erase */
+     return (-2);
+  }
+  
+  sdBuff= mymalloc(SRAMIN2, 512);
+  if(sdBuff == NULL)
+    return -3;//memery not enagh
+
+  for(j=0;j<(RomSize>>9);j++)
+  {
+    f_read(file, sdBuff, 512, &br);
+    if(br != 512)
+    {
+      return -4;
+    }
+    if(FLASH_If_Write(addr, sdBuff, 512/4) != FLASHIF_OK)
+    {
+      return -5;
+    }
+    addr += 512;
+  }
+
+  temp=RomSize%512; 
+  if(temp)
+  {
+    f_read(file, sdBuff, temp, &br);
+    if(br != temp)
+    {
+      return -4;
+    }
+    if(FLASH_If_Write(addr, sdBuff, temp/4+1) != FLASHIF_OK)
+    {
+      return -5;
+    }
+  }
+
+  *rom_prt = (uint8_t*)0x08020000;
+  
+  return 0;
 }
 
 /**
