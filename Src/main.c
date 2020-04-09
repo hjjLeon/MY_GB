@@ -112,7 +112,7 @@ static void vTaskSimulator(void *pvParameters)
     LCD_Clear(BLUE);
     vTaskDelay(50);
     
-		res = nes_load("0:/my.nes");	//¿ªÊ¼nesÓÎÏ·
+		res = nes_load("0:/my.nes");	//å¼€å§‹nesæ¸¸æˆ
     printf("error %d\r\n", res);
     vTaskDelay(100);
   }
@@ -126,12 +126,12 @@ static void vTaskKeyboard(void *pvParameters)
   vTaskDelay(2000);
   HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
 	OLED_BLK_Set();
-  xTaskCreate( vTaskSimulator, /* ÈÎÎñº¯Êı */
-              "vTaskSimulator", /* ÈÎÎñÃû */
-              1*1024/4, /* ÈÎÎñÕ»´óĞ¡£¬µ¥Î» word£¬Ò²¾ÍÊÇ 4 ×Ö½Ú */
-              NULL, /* ÈÎÎñ²ÎÊı */
-              2, /* ÈÎÎñÓÅÏÈ¼¶*/
-              &xHandleTaskSimulator ); /* ÈÎÎñ¾ä±ú */
+  xTaskCreate( vTaskSimulator, /* ä»»åŠ¡å‡½æ•° */
+              "vTaskSimulator", /* ä»»åŠ¡å */
+              1*1024/4, /* ä»»åŠ¡æ ˆå¤§å°ï¼Œå•ä½ wordï¼Œä¹Ÿå°±æ˜¯ 4 å­—èŠ‚ */
+              NULL, /* ä»»åŠ¡å‚æ•° */
+              2, /* ä»»åŠ¡ä¼˜å…ˆçº§*/
+              &xHandleTaskSimulator ); /* ä»»åŠ¡å¥æŸ„ */
   while(HAL_GPIO_ReadPin(KEY_START_GPIO_Port, KEY_START_Pin) == GPIO_PIN_RESET)
   {
     vTaskDelay(10);
@@ -227,7 +227,7 @@ int main(void)
   FLASH_If_Init();
   /* USER CODE BEGIN 2 */
 
-  Lcd_Init();			//³õÊ¼»¯OLED  
+  Lcd_Init();			//åˆå§‹åŒ–OLED  
   if(f_mount(&SDFatFS, (TCHAR const*)SDPath, 0) != FR_OK)
   {
     /* FatFs Initialization Error */
@@ -240,18 +240,18 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
-  xTaskCreate( vTaskKeyboard, /* ÈÎÎñº¯Êı */
-              "vTaskKeyboard", /* ÈÎÎñÃû */
-              512/4, /* ÈÎÎñÕ»´óĞ¡£¬µ¥Î» word£¬Ò²¾ÍÊÇ 4 ×Ö½Ú */
-              NULL, /* ÈÎÎñ²ÎÊı */
-              3, /* ÈÎÎñÓÅÏÈ¼¶*/
-              &xHandleTaskKeyboard ); /* ÈÎÎñ¾ä±ú */
-  xTaskCreate( vTaskDacTest, /* ÈÎÎñº¯Êı */
-              "vTaskDacTest", /* ÈÎÎñÃû */
-              512/4, /* ÈÎÎñÕ»´óĞ¡£¬µ¥Î» word£¬Ò²¾ÍÊÇ 4 ×Ö½Ú */
-              NULL, /* ÈÎÎñ²ÎÊı */
-              3, /* ÈÎÎñÓÅÏÈ¼¶*/
-              &xHandleTaskDacTest ); /* ÈÎÎñ¾ä±ú */
+  xTaskCreate( vTaskKeyboard, /* ä»»åŠ¡å‡½æ•° */
+              "vTaskKeyboard", /* ä»»åŠ¡å */
+              512/4, /* ä»»åŠ¡æ ˆå¤§å°ï¼Œå•ä½ wordï¼Œä¹Ÿå°±æ˜¯ 4 å­—èŠ‚ */
+              NULL, /* ä»»åŠ¡å‚æ•° */
+              3, /* ä»»åŠ¡ä¼˜å…ˆçº§*/
+              &xHandleTaskKeyboard ); /* ä»»åŠ¡å¥æŸ„ */
+  xTaskCreate( vTaskDacTest, /* ä»»åŠ¡å‡½æ•° */
+              "vTaskDacTest", /* ä»»åŠ¡å */
+              512/4, /* ä»»åŠ¡æ ˆå¤§å°ï¼Œå•ä½ wordï¼Œä¹Ÿå°±æ˜¯ 4 å­—èŠ‚ */
+              NULL, /* ä»»åŠ¡å‚æ•° */
+              3, /* ä»»åŠ¡ä¼˜å…ˆçº§*/
+              &xHandleTaskDacTest ); /* ä»»åŠ¡å¥æŸ„ */
   vTaskStartScheduler();
   while (1)
   {
@@ -263,7 +263,7 @@ int main(void)
     HAL_Delay(200);
     LCD_Clear(BLUE);
     
-		res = nes_load("0:/my.nes");	//¿ªÊ¼nesÓÎÏ·
+		res = nes_load("0:/my.nes");	//å¼€å§‹nesæ¸¸æˆ
     printf("error %d\r\n", res);*/
     /* USER CODE END WHILE */
 
