@@ -7,49 +7,49 @@
 #include "FreeRTOS.h"
 #include "task.h"
 //////////////////////////////////////////////////////////////////////////////////	 
-//±¾³ÌĞòÒÆÖ²×ÔÍøÓÑye781205µÄNESÄ£ÄâÆ÷¹¤³Ì
-//ALIENTEK STM32F407¿ª·¢°å
-//NESÖ÷º¯Êı ´úÂë	   
-//ÕıµãÔ­×Ó@ALIENTEK
-//¼¼ÊõÂÛÌ³:www.openedv.com
-//´´½¨ÈÕÆÚ:2014/7/1
-//°æ±¾£ºV1.0  			  
+//æœ¬ç¨‹åºç§»æ¤è‡ªç½‘å‹ye781205çš„NESæ¨¡æ‹Ÿå™¨å·¥ç¨‹
+//ALIENTEK STM32F407å¼€å‘æ¿
+//NESä¸»å‡½æ•° ä»£ç 	   
+//æ­£ç‚¹åŸå­@ALIENTEK
+//æŠ€æœ¯è®ºå›:www.openedv.com
+//åˆ›å»ºæ—¥æœŸ:2014/7/1
+//ç‰ˆæœ¬ï¼šV1.0  			  
 ////////////////////////////////////////////////////////////////////////////////// 	 
  
 
-u8 nes_frame_cnt;		//nesÖ¡¼ÆÊıÆ÷ 
-int MapperNo;			//map±àºÅ
-int NES_scanline;		//nesÉ¨ÃèÏß
+u8 nes_frame_cnt;		//neså¸§è®¡æ•°å™¨ 
+int MapperNo;			//mapç¼–å·
+int NES_scanline;		//nesæ‰«æçº¿
 int VROM_1K_SIZE;
 int VROM_8K_SIZE;
 
-u8 PADdata;   			//ÊÖ±ú1¼üÖµ [7:0]ÓÒ7 ×ó6 ÏÂ5 ÉÏ4 Start3 Select2 B1 A0  
-u8 PADdata1;   			//ÊÖ±ú2¼üÖµ [7:0]ÓÒ7 ×ó6 ÏÂ5 ÉÏ4 Start3 Select2 B1 A0  
-u8 *NES_RAM;			//±£³Ö1024×Ö½Ú¶ÔÆë
+u8 PADdata;   			//æ‰‹æŸ„1é”®å€¼ [7:0]å³7 å·¦6 ä¸‹5 ä¸Š4 Start3 Select2 B1 A0  
+u8 PADdata1;   			//æ‰‹æŸ„2é”®å€¼ [7:0]å³7 å·¦6 ä¸‹5 ä¸Š4 Start3 Select2 B1 A0  
+u8 *NES_RAM;			//ä¿æŒ1024å­—èŠ‚å¯¹é½
 u8 *NES_SRAM;  
-NES_header *RomHeader; 	//romÎÄ¼şÍ·
+NES_header *RomHeader; 	//romæ–‡ä»¶å¤´
 MAPPER *NES_Mapper;		 
 MapperCommRes *MAPx;  
 
 
-u8* spr_ram;			//¾«ÁéRAM,256×Ö½Ú
-ppu_data* ppu;			//ppuÖ¸Õë
+u8* spr_ram;			//ç²¾çµRAM,256å­—èŠ‚
+ppu_data* ppu;			//ppuæŒ‡é’ˆ
 u8* VROM_banks;
 u8* VROM_tiles;
 
-apu_t *apu; 			//apuÖ¸Õë
+apu_t *apu; 			//apuæŒ‡é’ˆ
 u16 *wave_buffers; 		
-u16 *i2sbuf1; 			//ÒôÆµ»º³åÖ¡,Õ¼ÓÃÄÚ´æÊı 367*4 ×Ö½Ú@22050Hz
-u16 *i2sbuf2; 			//ÒôÆµ»º³åÖ¡,Õ¼ÓÃÄÚ´æÊı 367*4 ×Ö½Ú@22050Hz
+u16 *i2sbuf1; 			//éŸ³é¢‘ç¼“å†²å¸§,å ç”¨å†…å­˜æ•° 367*4 å­—èŠ‚@22050Hz
+u16 *i2sbuf2; 			//éŸ³é¢‘ç¼“å†²å¸§,å ç”¨å†…å­˜æ•° 367*4 å­—èŠ‚@22050Hz
 
-u8* romfile;			//nesÎÄ¼şÖ¸Õë,Ö¸ÏòÕû¸önesÎÄ¼şµÄÆğÊ¼µØÖ·.
+u8* romfile;			//nesæ–‡ä»¶æŒ‡é’ˆ,æŒ‡å‘æ•´ä¸ªnesæ–‡ä»¶çš„èµ·å§‹åœ°å€.
 //////////////////////////////////////////////////////////////////////////////////////
 
  
-//¼ÓÔØROM
-//·µ»ØÖµ:0,³É¹¦
-//    1,ÄÚ´æ´íÎó
-//    3,map´íÎó
+//åŠ è½½ROM
+//è¿”å›å€¼:0,æˆåŠŸ
+//    1,å†…å­˜é”™è¯¯
+//    3,mapé”™è¯¯
 u8 nes_load_rom(void)
 {  
     u8* p;  
@@ -63,15 +63,15 @@ u8 nes_load_rom(void)
 		RomHeader->num_8k_vrom_banks=p[5];
 		RomHeader->flags_1=p[6];
 		RomHeader->flags_2=p[7]; 
-		if(RomHeader->flags_1&0x04)p+=512;		//ÓĞ512×Ö½ÚµÄtrainer:
-		if(RomHeader->num_8k_vrom_banks>0)		//´æÔÚVROM,½øĞĞÔ¤½âÂë
+		if(RomHeader->flags_1&0x04)p+=512;		//æœ‰512å­—èŠ‚çš„trainer:
+		if(RomHeader->num_8k_vrom_banks>0)		//å­˜åœ¨VROM,è¿›è¡Œé¢„è§£ç 
 		{		
 			VROM_banks=p+16+(RomHeader->num_16k_rom_banks*0x4000);
-#if	NES_RAM_SPEED==1	//1:ÄÚ´æÕ¼ÓÃĞ¡ 0:ËÙ¶È¿ì	 
+#if	NES_RAM_SPEED==1	//1:å†…å­˜å ç”¨å° 0:é€Ÿåº¦å¿«	 
 			VROM_tiles=VROM_banks;	 
 #else  
-			VROM_tiles=mymalloc(SRAMIN1,RomHeader->num_8k_vrom_banks*8*1024);//ÕâÀï¿ÉÄÜÉêÇë¶à´ï1MBÄÚ´æ!!!
-			if(VROM_tiles==0)VROM_tiles=VROM_banks;//ÄÚ´æ²»¹»ÓÃµÄÇé¿öÏÂ,³¢ÊÔVROM_titlesÓëVROM_banks¹²ÓÃÄÚ´æ			
+			VROM_tiles=mymalloc(SRAMIN1,RomHeader->num_8k_vrom_banks*8*1024);//è¿™é‡Œå¯èƒ½ç”³è¯·å¤šè¾¾1MBå†…å­˜!!!
+			if(VROM_tiles==0)VROM_tiles=VROM_banks;//å†…å­˜ä¸å¤Ÿç”¨çš„æƒ…å†µä¸‹,å°è¯•VROM_titlesä¸VROM_bankså…±ç”¨å†…å­˜			
 			compile(RomHeader->num_8k_vrom_banks*8*1024/16,VROM_banks,VROM_tiles);  
 #endif	
 		}else 
@@ -83,9 +83,9 @@ u8 nes_load_rom(void)
 		VROM_1K_SIZE = RomHeader->num_8k_vrom_banks * 8;
 		VROM_8K_SIZE = RomHeader->num_8k_vrom_banks;  
 		MapperNo=(RomHeader->flags_1>>4)|(RomHeader->flags_2&0xf0);
-		if(RomHeader->flags_2 & 0x0E)MapperNo=RomHeader->flags_1>>4;//ºöÂÔ¸ßËÄÎ»£¬Èç¹ûÍ·¿´ÆğÀ´ºÜÔã¸â 
+		if(RomHeader->flags_2 & 0x0E)MapperNo=RomHeader->flags_1>>4;//å¿½ç•¥é«˜å››ä½ï¼Œå¦‚æœå¤´çœ‹èµ·æ¥å¾ˆç³Ÿç³• 
 		printf("use map:%d\r\n",MapperNo);
-		for(i=0;i<255;i++)  // ²éÕÒÖ§³ÖµÄMapperºÅ
+		for(i=0;i<255;i++)  // æŸ¥æ‰¾æ”¯æŒçš„Mapperå·
 		{		
 			if (MapTab[i]==MapperNo)break;		
 			if (MapTab[i]==-1)res=3; 
@@ -122,9 +122,9 @@ u8 nes_load_rom(void)
 			}
 		}
 	} 
-	return res;	//·µ»ØÖ´ĞĞ½á¹û
+	return res;	//è¿”å›æ‰§è¡Œç»“æœ
 } 
-//ÊÍ·ÅÄÚ´æ 
+//é‡Šæ”¾å†…å­˜ 
 void nes_sram_free(void)
 { 
 	myfree(SRAMIN1,NES_RAM);		
@@ -138,14 +138,14 @@ void nes_sram_free(void)
 	myfree(SRAMIN1,i2sbuf1);	
 	myfree(SRAMIN1,i2sbuf2);	 
 	myfree(SRAMIN1,romfile);	  
-	if((VROM_tiles!=VROM_banks)&&VROM_banks&&VROM_tiles)//Èç¹û·Ö±ğÎªVROM_banksºÍVROM_tilesÉêÇëÁËÄÚ´æ,ÔòÊÍ·Å
+	if((VROM_tiles!=VROM_banks)&&VROM_banks&&VROM_tiles)//å¦‚æœåˆ†åˆ«ä¸ºVROM_bankså’ŒVROM_tilesç”³è¯·äº†å†…å­˜,åˆ™é‡Šæ”¾
 	{
 		myfree(SRAMIN1,VROM_banks);
 		myfree(SRAMIN1,VROM_tiles);		 
 	}
-	switch (MapperNo)//ÊÍ·ÅmapÄÚ´æ
+	switch (MapperNo)//é‡Šæ”¾mapå†…å­˜
 	{
-		case 1: 			//ÊÍ·ÅÄÚ´æ
+		case 1: 			//é‡Šæ”¾å†…å­˜
 			myfree(SRAMIN1,MAP1);
 			break;	 	
 		case 4: 
@@ -164,7 +164,7 @@ void nes_sram_free(void)
 		case 69:
 		case 85:
 		case 189:
-			myfree(SRAMIN1,MAPx);break;	 		//ÊÍ·ÅÄÚ´æ 
+			myfree(SRAMIN1,MAPx);break;	 		//é‡Šæ”¾å†…å­˜ 
 		default:break; 
 	}
 	NES_RAM=0;	
@@ -183,24 +183,24 @@ void nes_sram_free(void)
 	MAP1=0;
 	MAPx=0;
 } 
-//ÎªNESÔËĞĞÉêÇëÄÚ´æ
-//romsize:nesÎÄ¼ş´óĞ¡
-//·µ»ØÖµ:0,ÉêÇë³É¹¦
-//       1,ÉêÇëÊ§°Ü
+//ä¸ºNESè¿è¡Œç”³è¯·å†…å­˜
+//romsize:nesæ–‡ä»¶å¤§å°
+//è¿”å›å€¼:0,ç”³è¯·æˆåŠŸ
+//       1,ç”³è¯·å¤±è´¥
 u8 nes_sram_malloc(u32 romsize)
 {
 	u16 i=0;
-	for(i=0;i<64;i++)//ÎªNES_RAM,²éÕÒ1024¶ÔÆëµÄÄÚ´æ
+	for(i=0;i<64;i++)//ä¸ºNES_RAM,æŸ¥æ‰¾1024å¯¹é½çš„å†…å­˜
 	{
 		NES_SRAM=mymalloc(SRAMIN1,i*32);
-		NES_RAM=mymalloc(SRAMIN1,0X800);	//ÉêÇë2K×Ö½Ú,±ØĞë1024×Ö½Ú¶ÔÆë
-		if((u32)NES_RAM%1024)			//²»ÊÇ1024×Ö½Ú¶ÔÆë
+		NES_RAM=mymalloc(SRAMIN1,0X800);	//ç”³è¯·2Kå­—èŠ‚,å¿…é¡»1024å­—èŠ‚å¯¹é½
+		if((u32)NES_RAM%1024)			//ä¸æ˜¯1024å­—èŠ‚å¯¹é½
 		{
-			myfree(SRAMIN1,NES_RAM);		//ÊÍ·ÅÄÚ´æ,È»ºóÖØĞÂ³¢ÊÔ·ÖÅä
+			myfree(SRAMIN1,NES_RAM);		//é‡Šæ”¾å†…å­˜,ç„¶åé‡æ–°å°è¯•åˆ†é…
 			myfree(SRAMIN1,NES_SRAM); 
 		}else 
 		{
-			myfree(SRAMIN1,NES_SRAM); 	//ÊÍ·ÅÄÚ´æ
+			myfree(SRAMIN1,NES_SRAM); 	//é‡Šæ”¾å†…å­˜
 			break;
 		}
 	}	 
@@ -213,80 +213,80 @@ u8 nes_sram_malloc(u32 romsize)
 	wave_buffers=mymalloc(SRAMIN1,APU_PCMBUF_SIZE*2);
 	//i2sbuf1=mymalloc(SRAMIN1,APU_PCMBUF_SIZE*4+10);
 	//i2sbuf2=mymalloc(SRAMIN1,APU_PCMBUF_SIZE*4+10);
- 	//romfile=mymalloc(SRAMIN1,romsize);			//ÉêÇëÓÎÏ·rom¿Õ¼ä,µÈÓÚnesÎÄ¼ş´óĞ¡ 
+ 	//romfile=mymalloc(SRAMIN1,romsize);			//ç”³è¯·æ¸¸æˆromç©ºé—´,ç­‰äºnesæ–‡ä»¶å¤§å° 
 	if(i==64||!NES_RAM||!NES_SRAM||!RomHeader||!NES_Mapper||!spr_ram||!ppu||!apu||!wave_buffers)
 	{
 		nes_sram_free();
 		return 1;
 	}
-	memset(NES_SRAM,0,0X2000);				//ÇåÁã
-	memset(RomHeader,0,sizeof(NES_header));	//ÇåÁã
-	memset(NES_Mapper,0,sizeof(MAPPER));	//ÇåÁã
-	memset(spr_ram,0,0X100);				//ÇåÁã
-	memset(ppu,0,sizeof(ppu_data));			//ÇåÁã
-	memset(apu,0,sizeof(apu_t));			//ÇåÁã
-	memset(wave_buffers,0,APU_PCMBUF_SIZE*2);//ÇåÁã
-	//memset(i2sbuf1,0,APU_PCMBUF_SIZE*4+10);	//ÇåÁã
-	//memset(i2sbuf2,0,APU_PCMBUF_SIZE*4+10);	//ÇåÁã
-	//memset(romfile,0,romsize);				//ÇåÁã 
+	memset(NES_SRAM,0,0X2000);				//æ¸…é›¶
+	memset(RomHeader,0,sizeof(NES_header));	//æ¸…é›¶
+	memset(NES_Mapper,0,sizeof(MAPPER));	//æ¸…é›¶
+	memset(spr_ram,0,0X100);				//æ¸…é›¶
+	memset(ppu,0,sizeof(ppu_data));			//æ¸…é›¶
+	memset(apu,0,sizeof(apu_t));			//æ¸…é›¶
+	memset(wave_buffers,0,APU_PCMBUF_SIZE*2);//æ¸…é›¶
+	//memset(i2sbuf1,0,APU_PCMBUF_SIZE*4+10);	//æ¸…é›¶
+	//memset(i2sbuf2,0,APU_PCMBUF_SIZE*4+10);	//æ¸…é›¶
+	//memset(romfile,0,romsize);				//æ¸…é›¶ 
 	return 0;
 } 
-//¿ªÊ¼nesÓÎÏ·
-//pname:nesÓÎÏ·Â·¾¶
-//·µ»ØÖµ:
-//0,Õı³£ÍË³ö
-//1,ÄÚ´æ´íÎó
-//2,ÎÄ¼ş´íÎó
-//3,²»Ö§³ÖµÄmap
+//å¼€å§‹nesæ¸¸æˆ
+//pname:nesæ¸¸æˆè·¯å¾„
+//è¿”å›å€¼:
+//0,æ­£å¸¸é€€å‡º
+//1,å†…å­˜é”™è¯¯
+//2,æ–‡ä»¶é”™è¯¯
+//3,ä¸æ”¯æŒçš„map
 u8 nes_load(u8* pname)
 {
 	FIL *file; 
 	UINT br;
 	u8 res=0,i;
 	/*app_wm8978_volset(wm8978set.mvol);	 
-	WM8978_ADDA_Cfg(1,0);	//¿ªÆôDAC
-	WM8978_Input_Cfg(0,0,0);//¹Ø±ÕÊäÈëÍ¨µÀ
-	WM8978_Output_Cfg(1,0);	//¿ªÆôDACÊä³ö*/
+	WM8978_ADDA_Cfg(1,0);	//å¼€å¯DAC
+	WM8978_Input_Cfg(0,0,0);//å…³é—­è¾“å…¥é€šé“
+	WM8978_Output_Cfg(1,0);	//å¼€å¯DACè¾“å‡º*/
 	
 	file=mymalloc(SRAMIN1,sizeof(FIL));  
-	if(file==0)return 1;						//ÄÚ´æÉêÇëÊ§°Ü.  
+	if(file==0)return 1;						//å†…å­˜ç”³è¯·å¤±è´¥.  
 	res=f_open(file,(char*)pname,FA_READ);
-	if(res!=FR_OK)	//´ò¿ªÎÄ¼şÊ§°Ü
+	if(res!=FR_OK)	//æ‰“å¼€æ–‡ä»¶å¤±è´¥
 	{
 		myfree(SRAMIN1,file);
 		return 2;
 	}	 
-	res=nes_sram_malloc(f_size(file));			//ÉêÇëÄÚ´æ 
+	res=nes_sram_malloc(f_size(file));			//ç”³è¯·å†…å­˜ 
 	if(res==0)
 	{
-		//f_read(file,romfile,f_size(file),&br);	//¶ÁÈ¡nesÎÄ¼ş
+		//f_read(file,romfile,f_size(file),&br);	//è¯»å–nesæ–‡ä»¶
 		extern TaskHandle_t xHandleTaskSimulator;
     vTaskPrioritySet(xHandleTaskSimulator, 4);
     i = FLASH_IF_NES_LOAD(file, &romfile, f_size(file));
     vTaskPrioritySet(xHandleTaskSimulator, 2);
 		if(i)
       while(1);
-		res=nes_load_rom();						//¼ÓÔØROM
+		res=nes_load_rom();						//åŠ è½½ROM
 		if(res==0) 					
 		{   
       i = mem_perused(SRAMIN1);
       printf("mem:%d%%\r\n", i);
-			Mapper_Init();						//map³õÊ¼»¯
-			cpu6502_init();						//³õÊ¼»¯6502,²¢¸´Î»	  	 
-			PPU_reset();						//ppu¸´Î»
-			apu_init(); 						//apu³õÊ¼»¯ 
-			nes_sound_open(0,APU_SAMPLE_RATE);	//³õÊ¼»¯²¥·ÅÉè±¸
-			nes_emulate_frame();				//½øÈëNESÄ£ÄâÆ÷Ö÷Ñ­»· 
-			nes_sound_close();					//¹Ø±ÕÉùÒôÊä³ö
+			Mapper_Init();						//mapåˆå§‹åŒ–
+			cpu6502_init();						//åˆå§‹åŒ–6502,å¹¶å¤ä½	  	 
+			PPU_reset();						//ppuå¤ä½
+			apu_init(); 						//apuåˆå§‹åŒ– 
+			nes_sound_open(0,APU_SAMPLE_RATE);	//åˆå§‹åŒ–æ’­æ”¾è®¾å¤‡
+			nes_emulate_frame();				//è¿›å…¥NESæ¨¡æ‹Ÿå™¨ä¸»å¾ªç¯ 
+			nes_sound_close();					//å…³é—­å£°éŸ³è¾“å‡º
 		}
 	}
 	f_close(file);
-	myfree(SRAMIN1,file);//ÊÍ·ÅÄÚ´æ
-	nes_sram_free();	//ÊÍ·ÅÄÚ´æ
+	myfree(SRAMIN1,file);//é‡Šæ”¾å†…å­˜
+	nes_sram_free();	//é‡Šæ”¾å†…å­˜
 	return res;
 }  
-u8 nes_xoff=0;	//ÏÔÊ¾ÔÚxÖá·½ÏòµÄÆ«ÒÆÁ¿(Êµ¼ÊÏÔÊ¾¿í¶È=256-2*nes_xoff)
-//ÉèÖÃÓÎÏ·ÏÔÊ¾´°¿Ú
+u8 nes_xoff=0;	//æ˜¾ç¤ºåœ¨xè½´æ–¹å‘çš„åç§»é‡(å®é™…æ˜¾ç¤ºå®½åº¦=256-2*nes_xoff)
+//è®¾ç½®æ¸¸æˆæ˜¾ç¤ºçª—å£
 void nes_set_window(void)
 {	
   
@@ -299,7 +299,7 @@ void nes_set_window(void)
 	{
 		lcdwidth=240;
 		lcdheight=240;
-		nes_xoff=(256-lcddev.width)/2;	//µÃµ½xÖá·½ÏòµÄÆ«ÒÆÁ¿
+		nes_xoff=(256-lcddev.width)/2;	//å¾—åˆ°xè½´æ–¹å‘çš„åç§»é‡
  		xoff=0; 
 	}else if(lcddev.width==320) 
 	{
@@ -311,29 +311,29 @@ void nes_set_window(void)
 	{
 		lcdwidth=480;
 		lcdheight=480; 
-		nes_xoff=(256-(lcddev.width/2))/2;//µÃµ½xÖá·½ÏòµÄÆ«ÒÆÁ¿
+		nes_xoff=(256-(lcddev.width/2))/2;//å¾—åˆ°xè½´æ–¹å‘çš„åç§»é‡
  		xoff=0;  
 	}	
-	yoff=(lcddev.height-lcdheight-gui_phy.tbheight)/2+gui_phy.tbheight;//ÆÁÄ»¸ß¶È 
-	LCD_Set_Window(xoff,yoff,lcdwidth,lcdheight);//ÈÃNESÊ¼ÖÕÔÚÆÁÄ»µÄÕıÖĞÑëÏÔÊ¾
+	yoff=(lcddev.height-lcdheight-gui_phy.tbheight)/2+gui_phy.tbheight;//å±å¹•é«˜åº¦ 
+	LCD_Set_Window(xoff,yoff,lcdwidth,lcdheight);//è®©NESå§‹ç»ˆåœ¨å±å¹•çš„æ­£ä¸­å¤®æ˜¾ç¤º
 	LCD_SetCursor(xoff,yoff);
-	LCD_WriteRAM_Prepare();//Ğ´ÈëLCD RAMµÄ×¼±¸  */ 
+	LCD_WriteRAM_Prepare();//å†™å…¥LCD RAMçš„å‡†å¤‡  */ 
 }
 extern void KEYBRD_FCPAD_Decode(uint8_t *fcbuf,uint8_t mode);
-//¶ÁÈ¡ÓÎÏ·ÊÖ±úÊı¾İ
+//è¯»å–æ¸¸æˆæ‰‹æŸ„æ•°æ®
 void nes_get_gamepadval(void)
 {  
 	/*u8 *pt;
-	while((usbx.bDeviceState&0XC0)==0X40)//USBÉè±¸²åÈëÁË,µ«ÊÇ»¹Ã»Á¬½Ó³É¹¦,ÃÍ²éÑ¯.
+	while((usbx.bDeviceState&0XC0)==0X40)//USBè®¾å¤‡æ’å…¥äº†,ä½†æ˜¯è¿˜æ²¡è¿æ¥æˆåŠŸ,çŒ›æŸ¥è¯¢.
 	{
-		usbapp_pulling();	//ÂÖÑ¯´¦ÀíUSBÊÂÎñ
+		usbapp_pulling();	//è½®è¯¢å¤„ç†USBäº‹åŠ¡
 	}
-	usbapp_pulling();		//ÂÖÑ¯´¦ÀíUSBÊÂÎñ
-	if(usbx.hdevclass==4)	//USBÓÎÏ·ÊÖ±ú
+	usbapp_pulling();		//è½®è¯¢å¤„ç†USBäº‹åŠ¡
+	if(usbx.hdevclass==4)	//USBæ¸¸æˆæ‰‹æŸ„
 	{	
 		PADdata=fcpad.ctrlval;
 		PADdata1=0;
-	}else if(usbx.hdevclass==3)//USB¼üÅÌÄ£ÄâÊÖ±ú
+	}else if(usbx.hdevclass==3)//USBé”®ç›˜æ¨¡æ‹Ÿæ‰‹æŸ„
 	{
 		KEYBRD_FCPAD_Decode(pt,0);
 		PADdata=fcpad.ctrlval;
@@ -358,12 +358,12 @@ void nes_get_gamepadval(void)
   if(!NESKEY3)PADdata|=0x02;//1
   if(!NESKEY4)PADdata|=0x01;//0   
 }    
-//nesÄ£ÄâÆ÷Ö÷Ñ­»·
+//nesæ¨¡æ‹Ÿå™¨ä¸»å¾ªç¯
 void nes_emulate_frame(void)
 {  
 	u8 nes_frame;
-	//TIM3_Int_Init(10000-1,8400-1);//Æô¶¯TIM3 ,1sÖĞ¶ÏÒ»´Î	
-	nes_set_window();//ÉèÖÃ´°¿Ú
+	//TIM3_Int_Init(10000-1,8400-1);//å¯åŠ¨TIM3 ,1sä¸­æ–­ä¸€æ¬¡	
+	nes_set_window();//è®¾ç½®çª—å£
 	while(1)
 	{	
 		// LINES 0-239
@@ -372,18 +372,18 @@ void nes_emulate_frame(void)
 		{
 			run6502(113*256);
 			NES_Mapper->HSync(NES_scanline);
-			//É¨ÃèÒ»ĞĞ		  
+			//æ‰«æä¸€è¡Œ		  
 			if(nes_frame==0)scanline_draw(NES_scanline);
 			else do_scanline_and_dont_draw(NES_scanline); 
 		}  
 		NES_scanline=240;
-		run6502(113*256);//ÔËĞĞ1Ïß
+		run6502(113*256);//è¿è¡Œ1çº¿
 		NES_Mapper->HSync(NES_scanline); 
 		start_vblank(); 
 		if(NMI_enabled()) 
 		{
 			cpunmi=1;
-			run6502(7*256);//ÔËĞĞÖĞ¶Ï
+			run6502(7*256);//è¿è¡Œä¸­æ–­
 		}
 		NES_Mapper->VSync();
 		// LINES 242-261    
@@ -393,65 +393,65 @@ void nes_emulate_frame(void)
 			NES_Mapper->HSync(NES_scanline);		  
 		}	   
 		end_vblank(); 
-		nes_get_gamepadval();//Ã¿3Ö¡²éÑ¯Ò»´ÎUSB
-		apu_soundoutput();//Êä³öÓÎÏ·ÉùÒô	 
+		nes_get_gamepadval();//æ¯3å¸§æŸ¥è¯¢ä¸€æ¬¡USB
+		apu_soundoutput();//è¾“å‡ºæ¸¸æˆå£°éŸ³	 
 		nes_frame_cnt++; 	
 		nes_frame++;
-		if(nes_frame>NES_SKIP_FRAME)nes_frame=0;//ÌøÖ¡ 
-		/*if(system_task_return)break;//TPAD·µ»Ø  
-		if(spbdev.spbheight==0&&spbdev.spbwidth==0)//²úÉúÁËÀ´µçÊÂ¼şĞèÒªÖØĞÂÉèÖÃ´°¿Ú
+		if(nes_frame>NES_SKIP_FRAME)nes_frame=0;//è·³å¸§ 
+		/*if(system_task_return)break;//TPADè¿”å›  
+		if(spbdev.spbheight==0&&spbdev.spbwidth==0)//äº§ç”Ÿäº†æ¥ç”µäº‹ä»¶éœ€è¦é‡æ–°è®¾ç½®çª—å£
 		{
 			nes_set_window();
 		}*/
 	}
-	//LCD_Set_Window(0,0,lcddev.width,lcddev.height);//»Ö¸´ÆÁÄ»´°¿Ú
-	//TIM3->CR1&=~(1<<0);//¹Ø±Õ¶¨Ê±Æ÷3
+	//LCD_Set_Window(0,0,lcddev.width,lcddev.height);//æ¢å¤å±å¹•çª—å£
+	//TIM3->CR1&=~(1<<0);//å…³é—­å®šæ—¶å™¨3
 }
-//ÔÚ6502.sÀïÃæ±»µ÷ÓÃ
+//åœ¨6502.sé‡Œé¢è¢«è°ƒç”¨
 void debug_6502(u16 reg0,u8 reg1)
 {
 	printf("6502 error:%x,%d\r\n",reg0,reg1);
 }
 ////////////////////////////////////////////////////////////////////////////////// 	 
-//nes,ÒôÆµÊä³öÖ§³Ö²¿·Ö
-volatile u8 nestransferend=0;	//i2s´«ÊäÍê³É±êÖ¾
-volatile u8 neswitchbuf=0;		//i2sbufxÖ¸Ê¾±êÖ¾
-//I2SÒôÆµ²¥·Å»Øµ÷º¯Êı
+//nes,éŸ³é¢‘è¾“å‡ºæ”¯æŒéƒ¨åˆ†
+volatile u8 nestransferend=0;	//i2sä¼ è¾“å®Œæˆæ ‡å¿—
+volatile u8 neswitchbuf=0;		//i2sbufxæŒ‡ç¤ºæ ‡å¿—
+//I2SéŸ³é¢‘æ’­æ”¾å›è°ƒå‡½æ•°
 void nes_i2s_dma_tx_callback(void)
 {  
 	if(DMA1_Stream4->CR&(1<<19))neswitchbuf=0; 
 	else neswitchbuf=1;  
 	nestransferend=1;
 }
-//NES´ò¿ªÒôÆµÊä³ö
+//NESæ‰“å¼€éŸ³é¢‘è¾“å‡º
 int nes_sound_open(int samples_per_sync,int sample_rate) 
 {
 	/*printf("sound open:%d\r\n",sample_rate);
-	WM8978_ADDA_Cfg(1,0);	//¿ªÆôDAC
-	WM8978_Input_Cfg(0,0,0);//¹Ø±ÕÊäÈëÍ¨µÀ
-	WM8978_Output_Cfg(1,0);	//¿ªÆôDACÊä³ö  
-	WM8978_I2S_Cfg(2,0);	//·ÉÀûÆÖ±ê×¼,16Î»Êı¾İ³¤¶È
+	WM8978_ADDA_Cfg(1,0);	//å¼€å¯DAC
+	WM8978_Input_Cfg(0,0,0);//å…³é—­è¾“å…¥é€šé“
+	WM8978_Output_Cfg(1,0);	//å¼€å¯DACè¾“å‡º  
+	WM8978_I2S_Cfg(2,0);	//é£åˆ©æµ¦æ ‡å‡†,16ä½æ•°æ®é•¿åº¦
 	app_wm8978_volset(wm8978set.mvol);
-  I2S2_Init(I2S_Standard_Phillips,I2S_Mode_MasterTx,I2S_CPOL_Low,I2S_DataFormat_16bextended);	//·ÉÀûÆÖ±ê×¼,Ö÷»ú·¢ËÍ,Ê±ÖÓµÍµçÆ½ÓĞĞ§,16Î»À©Õ¹Ö¡³¤¶È
-	I2S2_SampleRate_Set(sample_rate);		//ÉèÖÃ²ÉÑùÂÊ
-	I2S2_TX_DMA_Init((u8*)i2sbuf1,(u8*)i2sbuf2,2*APU_PCMBUF_SIZE);//DMAÅäÖÃ 
- 	i2s_tx_callback=nes_i2s_dma_tx_callback;//»Øµ÷º¯ÊıÖ¸wav_i2s_dma_callback
-	I2S_Play_Start();						//¿ªÆôDMA    */
+  I2S2_Init(I2S_Standard_Phillips,I2S_Mode_MasterTx,I2S_CPOL_Low,I2S_DataFormat_16bextended);	//é£åˆ©æµ¦æ ‡å‡†,ä¸»æœºå‘é€,æ—¶é’Ÿä½ç”µå¹³æœ‰æ•ˆ,16ä½æ‰©å±•å¸§é•¿åº¦
+	I2S2_SampleRate_Set(sample_rate);		//è®¾ç½®é‡‡æ ·ç‡
+	I2S2_TX_DMA_Init((u8*)i2sbuf1,(u8*)i2sbuf2,2*APU_PCMBUF_SIZE);//DMAé…ç½® 
+ 	i2s_tx_callback=nes_i2s_dma_tx_callback;//å›è°ƒå‡½æ•°æŒ‡wav_i2s_dma_callback
+	I2S_Play_Start();						//å¼€å¯DMA    */
   HAL_TIM_Base_Start_IT(&htim13);
 	return 1;
 }
-//NES¹Ø±ÕÒôÆµÊä³ö
+//NESå…³é—­éŸ³é¢‘è¾“å‡º
 void nes_sound_close(void) 
 { 
 	/*I2S_Play_Stop();
-	app_wm8978_volset(0);				//¹Ø±ÕWM8978ÒôÁ¿Êä³ö*/
+	app_wm8978_volset(0);				//å…³é—­WM8978éŸ³é‡è¾“å‡º*/
 } 
-//NESÒôÆµÊä³öµ½I2S»º´æ
+//NESéŸ³é¢‘è¾“å‡ºåˆ°I2Sç¼“å­˜
 void nes_apu_fill_buffer(int samples,u16* wavebuf)
 {	
 #if 0
  	int i;	 
-	/*while(!nestransferend)//µÈ´ıÒôÆµ´«Êä½áÊø
+	/*while(!nestransferend)//ç­‰å¾…éŸ³é¢‘ä¼ è¾“ç»“æŸ
 	{
 		//delay_ms(5);
     HAL_Delay(5);
