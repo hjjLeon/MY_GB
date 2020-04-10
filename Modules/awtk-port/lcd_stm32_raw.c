@@ -19,7 +19,7 @@
  *
  */
 
-#include "tftlcd.h"
+#include "oled.h"
 #include "tkc/mem.h"
 #include "lcd/lcd_mem_fragment.h"
 

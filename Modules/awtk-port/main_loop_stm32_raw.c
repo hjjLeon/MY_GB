@@ -18,16 +18,6 @@
  * 2018-02-17 li xianjing <xianjimli@hotmail.com> created
  *
  */
-
-#include "key.h"
-#include "led.h"
-#include "rtc.h"
-#include "stdlib.h"
-#include "tftlcd.h"
-#include "touch.h"
-#include "usart.h"
-
-
 #include "base/idle.h"
 #include "base/timer.h"
 #include "tkc/platform.h"
@@ -43,7 +33,7 @@ ret_t platform_disaptch_input(main_loop_t *l) { return RET_OK; }
 static lcd_t *platform_create_lcd(wh_t w, wh_t h) {
   return lcd_mem_fragment_create(w, h);
 }
-
+/*
 void dispatch_input_events(void) {
   int key = KEY_Scan(0);
 
@@ -88,5 +78,5 @@ void TIM3_IRQHandler(void) {
     TIM_ClearITPendingBit(TIM3, TIM_IT_Update);
   }
 }
-
+*/
 #include "main_loop/main_loop_raw.inc"
