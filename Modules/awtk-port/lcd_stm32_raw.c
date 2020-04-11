@@ -31,8 +31,8 @@ typedef uint16_t pixel_t;
 #define pixel_to_rgba(p)                                                       \
   { (0xff & ((p >> 11) << 3)), (0xff & ((p >> 5) << 2)), (0xff & (p << 3)) }
 
-#define set_window_func LCD_Set_Window
-#define write_data_func LCD_WriteData_Color
+#define set_window_func Address_set
+#define write_data_func LCD_WR_DATA
 
 #include "base/pixel.h"
 #include "blend/pixel_ops.inc"

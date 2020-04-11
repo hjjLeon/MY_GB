@@ -32,7 +32,7 @@
 /**
  * 如果需要支持预先解码的位图字体，请定义本宏。一般只在RAM极小时，才启用本宏。
  */
-#define WITH_BITMAP_FONT 1
+//#define WITH_BITMAP_FONT 1
 
 /**
  * 如果支持png/jpeg图片，请定义本宏
@@ -45,6 +45,7 @@
  *
  * #define WITH_STB_FONT 1
  */
+ #define WITH_STB_FONT 1
 
 /**
  * 如果用freetype支持Truetype字体，请定义本宏。
