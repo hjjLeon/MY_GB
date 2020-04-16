@@ -5,6 +5,8 @@
 #include "task.h"
 
 
+TaskHandle_t xHandleTaskGuiMain = NULL;
+
 void my_disp_flush(struct _disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p);
 
 void GuiHalInit(void)
@@ -20,8 +22,13 @@ void GuiHalInit(void)
     lv_disp_drv_register(&disp_drv);      /*Finally register the driver*/
 }
 
-void GuiHalMain(void)
+void vTaskGuiMain(void *pvParameters)
 {
+    
+    lv_init();
+    GuiHalInit();
+
+    //build window
     lv_obj_t * btn = lv_btn_create(lv_scr_act(), NULL);     /*Add a button the current screen*/
     lv_obj_set_pos(btn, 10, 10);                            /*Set its position*/
     lv_obj_set_size(btn, 100, 50);                          /*Set its size*/
@@ -48,6 +55,7 @@ void my_disp_flush(struct _disp_drv_t * disp_drv, const lv_area_t * area, lv_col
     y = area->y2 - area->y1 + 1;
 	Address_set(area->x1, area->y1, area->x2, area->y2);
     LCD_WR_DATAS((uint16_t*)color_p, x*y);
+    vTaskSuspend(xHandleTaskGuiMain);
 
     lv_disp_flush_ready(disp_drv);         /* Indicate you are ready with the flushing*/
 }

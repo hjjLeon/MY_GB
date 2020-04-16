@@ -68,6 +68,7 @@
 #include "task.h"
 #include "lvgl.h"
 #include "GUI_Main.h"
+#include "keyboard.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -88,8 +89,6 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-TaskHandle_t xHandleTaskSimulator = NULL;
-static TaskHandle_t xHandleTaskKeyboard = NULL;
 static TaskHandle_t xHandleTaskDacTest = NULL;
 /* USER CODE END PV */
 
@@ -101,72 +100,6 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-static void vTaskSimulator(void *pvParameters)
-{
-  uint8_t res;
-  GuiHalMain();
-  while(1)
-  {
-    vTaskDelay(200);
-    LCD_Clear(RED);
-    vTaskDelay(50);
-    LCD_Clear(GREEN);
-    vTaskDelay(50);
-    LCD_Clear(BLUE);
-    vTaskDelay(50);
-    
-		res = nes_load("0:/my.nes");	//开始nes游戏
-    printf("error %d\r\n", res);
-    vTaskDelay(100);
-  }
-}
-
-static void vTaskKeyboard(void *pvParameters)
-{
-  uint16_t count = 0;
-  
-  OLED_BLK_Clr();
-  vTaskDelay(2000);
-  HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
-	OLED_BLK_Set();
-  xTaskCreate( vTaskSimulator, /* 任务函数 */
-              "vTaskSimulator", /* 任务名 */
-              6*1024/4, /* 任务栈大小，单位 word，也就是 4 字节 */
-              NULL, /* 任务参数 */
-              2, /* 任务优先级*/
-              &xHandleTaskSimulator ); /* 任务句柄 */
-  while(HAL_GPIO_ReadPin(KEY_START_GPIO_Port, KEY_START_Pin) == GPIO_PIN_RESET)
-  {
-    vTaskDelay(10);
-  }
-  while(1)
-  {
-    if(HAL_GPIO_ReadPin(KEY_START_GPIO_Port, KEY_START_Pin) == GPIO_PIN_RESET)
-    {
-      while(1)
-      {
-        vTaskDelay(10);
-        if(HAL_GPIO_ReadPin(KEY_START_GPIO_Port, KEY_START_Pin) == GPIO_PIN_RESET)
-        {
-          count++;
-          if(count >= 200)
-          {
-            HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_RESET);
-            OLED_BLK_Clr();
-            //LCD_Clear(BLACK);
-            //while(1);
-          }
-        }
-        else
-        {
-          count = 0;
-          break;
-        }
-      }
-    }
-    vTaskDelay(10);
-  }
-}
 
 static void vTaskDacTest(void *pvParameters)
 {
@@ -236,15 +169,11 @@ int main(void)
     /* FatFs Initialization Error */
     Error_Handler();
   }
-  printf("system is ready,by Application\r\n");
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  lv_init();
-  GuiHalInit();
-  HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
   xTaskCreate( vTaskKeyboard, /* 任务函数 */
               "vTaskKeyboard", /* 任务名 */
               512/4, /* 任务栈大小，单位 word，也就是 4 字节 */
@@ -257,19 +186,15 @@ int main(void)
               NULL, /* 任务参数 */
               3, /* 任务优先级*/
               &xHandleTaskDacTest ); /* 任务句柄 */
+  xTaskCreate( vTaskGuiMain, /* 任务函数 */
+              "vTaskGuiMain", /* 任务名 */
+              6*1024/4, /* 任务栈大小，单位 word，也就是 4 字节 */
+              NULL, /* 任务参数 */
+              2, /* 任务优先级*/
+              &xHandleTaskGuiMain ); /* 任务句柄 */
   vTaskStartScheduler();
   while (1)
   {
-    /*HAL_Delay(200);
-    LCD_Clear(RED);
-    HAL_Delay(200);
-    LCD_Clear(GREEN);
-    HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
-    HAL_Delay(200);
-    LCD_Clear(BLUE);
-    
-		res = nes_load("0:/my.nes");	//开始nes游戏
-    printf("error %d\r\n", res);*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -338,8 +263,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   extern uint16_t apu_count;
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM14) {
-    lv_tick_inc(1);
     HAL_IncTick();
+    lv_tick_inc(1);
   }
   /* USER CODE BEGIN Callback 1 */
   else if(htim->Instance == TIM13)

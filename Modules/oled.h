@@ -63,6 +63,8 @@
 #define OLED_CMD  0	//ะดรüม๎
 #define OLED_DATA 1	//ะดสýพÝ
 
+extern uint8_t lcdFlushFinishFlg;
+
 
 void Lcd_Init(void); 
 void LCD_Clear(uint16_t Color);

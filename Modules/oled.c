@@ -3,6 +3,9 @@
 #include "oled.h"
 #include "stdlib.h"	 
 #include "spi.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "GUI_MAIN.h"
 
 void LCD_WR_DATA8(char da) //发送数据-8位参数
 {	
@@ -27,7 +30,7 @@ void LCD_WR_DATA8(char da) //发送数据-8位参数
 	OLED_CS_Set();
 }	  
 
-uint8_t lcdDataFalg = 0;
+uint8_t lcdFlushFinishFlg = 0;
 void LCD_WR_DATAS(uint16_t* da, uint16_t len)
 {	
   OLED_CS_Clr();
@@ -35,10 +38,9 @@ void LCD_WR_DATAS(uint16_t* da, uint16_t len)
   hspi1.Instance->CR1 |= (0x1<<11);
   hspi1.Init.DataSize = SPI_DATASIZE_16BIT;
   #if 1
-  while(lcdDataFalg);
-  lcdDataFalg = 1;
+  while(lcdFlushFinishFlg);
+  lcdFlushFinishFlg = 1;
   HAL_SPI_Transmit_DMA(&hspi1, (uint8_t*)da, len);
-  while(lcdDataFalg);
   #else
   HAL_SPI_Transmit(&hspi1, (uint8_t*)da, len, 0xFFFF);
   hspi1.Instance->CR1 &= ~(0x1<<11);
@@ -48,7 +50,7 @@ void LCD_WR_DATAS(uint16_t* da, uint16_t len)
 }	
 void LCD_WR_REG(char da)	 
 {		
-  while(lcdDataFalg);
+  while(lcdFlushFinishFlg);
   OLED_CS_Clr();
   OLED_DC_Clr();
 	//LCD_Writ_Bus(da);
@@ -85,7 +87,8 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
     hspi1.Instance->CR1 &= ~(0x1<<11);
     hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
     OLED_CS_Set();
-    lcdDataFalg = 0;
+    lcdFlushFinishFlg = 0;
+	xTaskResumeFromISR(xHandleTaskGuiMain);
   }
 }
 

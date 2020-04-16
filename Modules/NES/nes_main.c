@@ -260,10 +260,7 @@ u8 nes_load(u8* pname)
 	if(res==0)
 	{
 		//f_read(file,romfile,f_size(file),&br);	//读取nes文件
-		extern TaskHandle_t xHandleTaskSimulator;
-    vTaskPrioritySet(xHandleTaskSimulator, 4);
     i = FLASH_IF_NES_LOAD(file, &romfile, f_size(file));
-    vTaskPrioritySet(xHandleTaskSimulator, 2);
 		if(i)
       while(1);
 		res=nes_load_rom();						//加载ROM
