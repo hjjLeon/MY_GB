@@ -34,22 +34,10 @@
 #include "stdlib.h"	   
 #define LCD_W 240
 #define LCD_H 240
-#define	u8 unsigned char
-#define	u16 unsigned int
-#define	u32 unsigned long
 
 //OLED模式设置
 //0:4线串行模式
-//1:并行8080模式
-#define OLED_MODE 0
-#define SIZE 16
-#define XLevelL		0x00
-#define XLevelH		0x10
-#define Max_Column	128
-#define Max_Row		64
-#define	Brightness	0xFF 
-#define X_WIDTH 	128
-#define Y_WIDTH 	64	    						  
+//1:并行8080模式 						  
 //-----------------OLED端口定义----------------  	
 /*
 #define OLED_SCLK_Clr() GPIO_ResetBits(GPIOA,GPIO_Pin_5)//CLK
@@ -75,28 +63,15 @@
 #define OLED_CMD  0	//写命令
 #define OLED_DATA 1	//写数据
 
-extern  u16 BACK_COLOR, POINT_COLOR;   //背景色，画笔色
 
 void Lcd_Init(void); 
-void LCD_Clear(u16 Color);
+void LCD_Clear(uint16_t Color);
 void Address_set(unsigned int x1,unsigned int y1,unsigned int x2,unsigned int y2);
+void LCD_WR_DATAS(uint16_t* da, uint16_t len);
 void LCD_WR_DATA8(char da); //发送数据-8位参数
 void LCD_WR_DATA(int da);
 void LCD_WR_REG(char da);
 
-void LCD_DrawPoint(u16 x,u16 y);//画点
-void LCD_DrawPoint_big(u16 x,u16 y);//画一个大点
-u16  LCD_ReadPoint(u16 x,u16 y); //读点
-void Draw_Circle(u16 x0,u16 y0,u8 r);
-void LCD_DrawLine(u16 x1, u16 y1, u16 x2, u16 y2);
-void LCD_DrawRectangle(u16 x1, u16 y1, u16 x2, u16 y2);		   
-void LCD_Fill(u16 xsta,u16 ysta,u16 xend,u16 yend,u16 color);
-void LCD_ShowChar(u16 x,u16 y,u8 num,u8 mode);//显示一个字符
-void LCD_ShowNum(u16 x,u16 y,u32 num,u8 len);//显示数字
-void LCD_Show2Num(u16 x,u16 y,u16 num,u8 len);//显示2个数字
-void LCD_ShowString(u16 x,u16 y,const u8 *p);		 //显示一个字符串,16字体
- 
-void showhanzi(unsigned int x,unsigned int y,unsigned char index);
 
 
 

@@ -66,6 +66,8 @@
 #include "oled.h"
 #include "FreeRTOS.h"
 #include "task.h"
+#include "lvgl.h"
+#include "GUI_Main.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -102,6 +104,7 @@ void SystemClock_Config(void);
 static void vTaskSimulator(void *pvParameters)
 {
   uint8_t res;
+  GuiHalMain();
   while(1)
   {
     vTaskDelay(200);
@@ -128,7 +131,7 @@ static void vTaskKeyboard(void *pvParameters)
 	OLED_BLK_Set();
   xTaskCreate( vTaskSimulator, /* 任务函数 */
               "vTaskSimulator", /* 任务名 */
-              1*1024/4, /* 任务栈大小，单位 word，也就是 4 字节 */
+              6*1024/4, /* 任务栈大小，单位 word，也就是 4 字节 */
               NULL, /* 任务参数 */
               2, /* 任务优先级*/
               &xHandleTaskSimulator ); /* 任务句柄 */
@@ -239,6 +242,8 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  lv_init();
+  GuiHalInit();
   HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
   xTaskCreate( vTaskKeyboard, /* 任务函数 */
               "vTaskKeyboard", /* 任务名 */
@@ -333,6 +338,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   extern uint16_t apu_count;
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM14) {
+    lv_tick_inc(1);
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
