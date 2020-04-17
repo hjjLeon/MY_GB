@@ -20,6 +20,13 @@ void GuiHalInit(void)
     disp_drv.flush_cb = my_disp_flush;    /*Set your driver function*/
     disp_drv.buffer = &disp_buf;          /*Assign the buffer to the display*/
     lv_disp_drv_register(&disp_drv);      /*Finally register the driver*/
+
+    
+    lv_indev_drv_t  kp_drv;
+    lv_indev_drv_init(&kp_drv);
+    kp_drv.type = LV_INDEV_TYPE_KEYPAD;
+    kp_drv.read_cb = emulated_keypad_read;
+    emulated_kp_indev = lv_indev_drv_register(&kp_drv);
 }
 
 void vTaskGuiMain(void *pvParameters)
@@ -58,5 +65,22 @@ void my_disp_flush(struct _disp_drv_t * disp_drv, const lv_area_t * area, lv_col
     vTaskSuspend(xHandleTaskGuiMain);
 
     lv_disp_flush_ready(disp_drv);         /* Indicate you are ready with the flushing*/
+}
+
+static bool emulated_keypad_read(lv_indev_drv_t * indev_drv, lv_indev_data_t * data)
+{
+    (void)indev_drv;                /*Unused*/
+    data->key = last_key;
+    data->state = last_state;
+    return false;
+
+    BaseType_t xReturn = pdTRUE;
+    keyEvent event;
+    
+    xReturn = xQueueReceive( Test_Queue, &event, 0);
+    if (pdTRUE== xReturn)
+    {
+
+    }
 }
 

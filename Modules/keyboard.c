@@ -7,12 +7,12 @@
 
 #define KEYBOARD_SCAN_PERIOD        5
 #define KEYBOARD_DEBOUNCING_TIME    20
-#define KEYBOARD_REPEAT_START_TIME  300
-#define KEYBOARD_REPEAT_PERIOD      20
+#define KEYBOARD_REPEAT_START_TIME  400
+#define KEYBOARD_REPEAT_PERIOD      100
 #define KEYBOARD_FORCE_POWOFF_TIME  5000
 
 #define KEYBOARD_DEBOUNCING_COUNT       (KEYBOARD_DEBOUNCING_TIME/KEYBOARD_SCAN_PERIOD)
-#define KEYBOARD_REPEAT_START_COUNT     (KEYBOARD_REPEAT_START_TIME/KEYBOARD_SCAN_PERIOD)
+#define KEYBOARD_REPEAT_START_COUNT     (KEYBOARD_REPEAT_START_TIME/KEYBOARD_SCAN_PERIOD - KEYBOARD_DEBOUNCING_COUNT)
 #define KEYBOARD_REPEAT_PERIOD_COUNT    (KEYBOARD_REPEAT_PERIOD/KEYBOARD_SCAN_PERIOD)
 #define KEYBOARD_FORCE_POWOFF_COUNT     ((KEYBOARD_FORCE_POWOFF_TIME - KEYBOARD_REPEAT_START_TIME)/KEYBOARD_REPEAT_PERIOD)
 
@@ -52,6 +52,13 @@ void vTaskKeyboard(void *pvParameters)
 
     TickType_t xLastWakeTime = 0;
 
+    keyEvent event;
+
+    QueueHandle_t queueKeyboardEvent = xQueueCreate( 20, sizeof(keyEvent));
+    if(queueKeyboardEvent == NULL)
+    {
+        while(1);
+    }
     
     vTaskDelayUntil(&xLastWakeTime, 3000);
     HAL_GPIO_WritePin(POWER_SET_GPIO_Port, POWER_SET_Pin, GPIO_PIN_SET);
@@ -85,10 +92,13 @@ void vTaskKeyboard(void *pvParameters)
             if(keyPressTimeCount[i] == KEYBOARD_DEBOUNCING_COUNT)
             {
                 //按键按下
+                event.event = KEYBOARD_EVENT_DOWN;
             }
             else if(keyPressTimeCount[i] == KEYBOARD_REPEAT_START_COUNT)
             {
                 //按键长按
+                event.event = KEYBOARD_EVENT_REPEAT;
+
                 keyPressTimeCount[i] -= KEYBOARD_REPEAT_PERIOD_COUNT;//重新计算长按重复触发时间
                 if(i == 9)
                 {
@@ -104,10 +114,15 @@ void vTaskKeyboard(void *pvParameters)
                     }
                     
                 }
+
+                //暂不处理REPEAT事件
+                continue;
             }
             else if(keyPressTimeCount[i] == -1)
             {
                 //按键松开
+                event.event = KEYBOARD_EVENT_UP;
+
                 keyPressTimeCount[i] = 0;
                 if(i == 9)
                 {
@@ -121,8 +136,8 @@ void vTaskKeyboard(void *pvParameters)
             }
 
             //满足触发，发送按键事件
-            
-            
+            event.keyCode = i;
+            xQueueSend(queueKeyboardEvent, &event, 0);
         }
     }
 }
